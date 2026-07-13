@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Select Product{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <h2 class="mb-0">Step 2: Select Product for {{ client.name }}</h2>
+</div>
+<div class="row g-3 mt-1">
+    {% for product in products %}
+    <div class="col-12 col-sm-6 col-lg-4">
+        <div class="card mb-3">
+            <div class="card-body">
+                <h5 class="card-title">{{ product.name }}</h5>
+                <a href="{% url 'document_step3' %}?client={{ client.id }}&product={{ product.id }}" class="btn btn-primary">Select</a>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <p>No products with templates defined. Please add a product and assign a template.</p>
+    </div>
+    {% endfor %}
+</div>
+<a href="{% url 'document_step1' %}" class="btn btn-secondary mt-3">Back</a>
+{% endblock %}

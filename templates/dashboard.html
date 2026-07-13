@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <h2 class="mb-0">Dashboard</h2>
+</div>
+<div class="row g-3">
+    <div class="col-12 col-sm-6 col-lg-3">
+        <div class="card text-white bg-primary mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Today's Documents</h5>
+                <h1 class="display-4 mb-0">{{ total_today }}</h1>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-lg-3">
+        <div class="card text-white bg-success mb-3">
+            <div class="card-body">
+                <h5 class="card-title">This Month</h5>
+                <h1 class="display-4 mb-0">{{ total_month }}</h1>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-lg-3">
+        <div class="card text-white bg-warning mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Pending</h5>
+                <h1 class="display-4 mb-0">{{ pending }}</h1>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-sm-6 col-lg-3">
+        <div class="card text-white bg-info mb-3">
+            <div class="card-body">
+                <h5 class="card-title">Total</h5>
+                <h1 class="display-4 mb-0">{{ recent|length }}</h1>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="card mt-4">
+    <div class="card-body">
+        <h4 class="mb-3">Recent Documents</h4>
+        <div class="table-responsive">
+            <table class="table table-striped align-middle">
+                <thead>
+                    <tr><th>Number</th><th>Client</th><th>Date</th></tr>
+                </thead>
+                <tbody>
+                    {% for doc in recent %}
+                    <tr>
+                        <td>{{ doc.document_number }}</td>
+                        <td>{{ doc.client.name }}</td>
+                        <td>{{ doc.created_at|date:"Y-m-d H:i" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="3" class="text-center">No recent documents.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

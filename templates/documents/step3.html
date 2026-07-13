@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Fill Document Details{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <h2 class="mb-0">Step 3: Fill Document Data</h2>
+</div>
+<div class="card">
+    <div class="card-body">
+        <p class="fw-semibold">Template: {{ template.name }}</p>
+        <form method="post">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <div class="d-flex flex-wrap gap-2 mt-3">
+                <button type="submit" class="btn btn-success">Generate Document</button>
+                <a href="{% url 'document_step1' %}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Dropdowns{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <h2 class="mb-0">Dropdown Lists</h2>
+    <a href="{% url 'dropdown_add' %}" class="btn btn-primary">Add Dropdown</a>
+</div>
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped align-middle">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Items</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for dropdown in dropdowns %}
+                    <tr>
+                        <td>{{ dropdown.name }}</td>
+                        <td>
+                            {% for item in dropdown.items %}
+                                <span class="badge bg-secondary">{{ item }}</span>
+                            {% empty %}
+                                <span class="text-muted">(empty)</span>
+                            {% endfor %}
+                        </td>
+                        <td>
+                            <a href="{% url 'dropdown_edit' dropdown.pk %}" class="btn btn-sm btn-warning">Edit</a>
+                            <a href="{% url 'dropdown_delete' dropdown.pk %}" class="btn btn-sm btn-danger">Delete</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="3" class="text-center">No dropdowns found.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

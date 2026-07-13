@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Select Client{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <h2 class="mb-0">Step 1: Select Client</h2>
+</div>
+<div class="row g-3 mt-1">
+    {% for client in clients %}
+    <div class="col-12 col-sm-6 col-lg-4">
+        <div class="card mb-3">
+            <div class="card-body">
+                <h5 class="card-title">{{ client.name }}</h5>
+                <p class="card-text">{{ client.address }}</p>
+                <a href="{% url 'document_step2' %}?client={{ client.id }}" class="btn btn-primary">Select</a>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <p>No clients available. Please add a client first.</p>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

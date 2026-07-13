@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}All Documents{% endblock %}
+{% block content %}
+<div class="page-heading">
+    <h2 class="mb-0">All Documents</h2>
+    <a href="{% url 'document_step1' %}" class="btn btn-primary">New Document</a>
+</div>
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead>
+                    <tr>
+                        <th>Number</th>
+                        <th>Client</th>
+                        <th>Product</th>
+                        <th>Date</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for doc in documents %}
+                    <tr>
+                        <td>{{ doc.document_number }}</td>
+                        <td>{{ doc.client.name }}</td>
+                        <td>{{ doc.product.name }}</td>
+                        <td>{{ doc.created_at|date:"Y-m-d" }}</td>
+                        <td><span class="badge bg-{% if doc.status == 'generated' %}success{% elif doc.status == 'processing' %}warning{% else %}secondary{% endif %}">{{ doc.get_status_display }}</span></td>
+                        <td>
+                            <a href="{% url 'document_status' doc.id %}" class="btn btn-sm btn-info">View</a>
+                            {% if doc.status == 'generated' %}
+                                <a href="{% url 'download_pdf' doc.id %}" class="btn btn-sm btn-primary">PDF</a>
+                                <a href="{% url 'download_docx' doc.id %}" class="btn btn-sm btn-secondary">DOCX</a>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="text-center">No documents yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

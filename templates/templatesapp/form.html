@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}{% if form.instance.pk %}Edit{% else %}Add{% endif %} Template{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3>{% if form.instance.pk %}Edit{% else %}Add{% endif %} Template</h3>
+    </div>
+    <div class="card-body">
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            
+            <!-- Main Template Fields -->
+            <fieldset class="border p-3 mb-4">
+                <legend class="w-auto">Template Details</legend>
+                {{ form.as_p }}
+            </fieldset>
+            
+            <!-- Template Fields (Formset) -->
+            <fieldset class="border p-3">
+                <legend class="w-auto">Template Fields</legend>
+                <p class="text-muted">Define the dynamic fields that will appear in the document form.</p>
+                
+                {{ field_formset.management_form }}
+                <div id="field-forms">
+                    {% for field_form in field_formset %}
+                        <div class="card mb-3">
+                            <div class="card-body">
+                                {{ field_form.as_p }}
+                                {% if field_form.instance.pk %}
+                                    <div class="form-check">
+                                        {{ field_form.DELETE }} 
+                                        <label class="form-check-label" for="{{ field_form.DELETE.id_for_label }}">
+                                            Delete this field
+                                        </label>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </fieldset>
+            
+            <div class="d-flex flex-wrap gap-2 mt-3">
+                <button type="submit" class="btn btn-success">Save</button>
+                <a href="{% url 'template_list' %}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
