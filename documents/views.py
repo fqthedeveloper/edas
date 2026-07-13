@@ -12,6 +12,7 @@ from .tasks import generate_document_pdf_docx
 from sequences.services import get_next_number
 from django.db.models import Q, Count
 from django.utils import timezone
+from django.template import Template, Context
 from django.template.loader import render_to_string
 
 
@@ -116,9 +117,12 @@ def document_status(request, doc_id):
 @login_required
 def document_preview(request, doc_id):
     doc = get_object_or_404(Document, id=doc_id)
+    # Build context from DocumentValue
     context = {val.field.field_name: val.value for val in doc.values.all()}
+    context['company'] = doc.client.company
     context['document'] = doc
-    html = render_to_string(doc.template.html_layout, context)
+    # Render HTML from stored layout
+    html = Template(doc.template.html_layout).render(Context(context))
     return HttpResponse(html)
 
 @login_required

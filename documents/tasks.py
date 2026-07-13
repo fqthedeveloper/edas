@@ -35,7 +35,7 @@ def generate_document_pdf_docx(document_id):
     qr_bytes = generate_qr_code(qr_data)
     doc.qr_code.save(f"{doc.document_number}_qr.png", ContentFile(qr_bytes), save=False)
     logger.info("QR code generated")
-    
+    context['base_url'] = getattr(settings, 'BASE_URL', 'http://localhost:8000')
     # Generate Barcode
     barcode_bytes = generate_barcode(doc.document_number)
     doc.barcode.save(f"{doc.document_number}_barcode.png", ContentFile(barcode_bytes), save=False)
