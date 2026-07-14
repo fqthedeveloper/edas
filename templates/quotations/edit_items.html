@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Edit Items{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header"><h3>Edit Items for {{ quotation.quotation_number }}</h3></div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="table-responsive">
+                <table class="table table-bordered" id="itemsTable">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Description</th>
+                            <th>Type</th>
+                            <th>Flange/Box</th>
+                            <th>CFM</th>
+                            <th>Qty</th>
+                            <th>Unit Rate</th>
+                            <th>Length</th>
+                            <th>Height</th>
+                            <th>Width</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in items %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td><input type="text" name="description" value="{{ item.description }}" class="form-control form-control-sm"></td>
+                            <td><input type="text" name="type" value="{{ item.type }}" class="form-control form-control-sm"></td>
+                            <td><input type="text" name="flange_box" value="{{ item.flange_box }}" class="form-control form-control-sm"></td>
+                            <td><input type="number" name="cfm" value="{{ item.cfm }}" class="form-control form-control-sm"></td>
+                            <td><input type="number" name="qty" value="{{ item.qty }}" class="form-control form-control-sm"></td>
+                            <td><input type="number" name="unit_rate" value="{{ item.unit_rate }}" step="0.01" class="form-control form-control-sm"></td>
+                            <td><input type="number" name="length" value="{{ item.length }}" step="0.01" class="form-control form-control-sm"></td>
+                            <td><input type="number" name="height" value="{{ item.height }}" step="0.01" class="form-control form-control-sm"></td>
+                            <td><input type="number" name="width" value="{{ item.width }}" step="0.01" class="form-control form-control-sm"></td>
+                            <td><button type="button" class="btn btn-sm btn-danger remove-row">✕</button></td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td>1</td>
+                            <td><input type="text" name="description" class="form-control form-control-sm"></td>
+                            <td><input type="text" name="type" class="form-control form-control-sm"></td>
+                            <td><input type="text" name="flange_box" class="form-control form-control-sm"></td>
+                            <td><input type="number" name="cfm" class="form-control form-control-sm"></td>
+                            <td><input type="number" name="qty" class="form-control form-control-sm"></td>
+                            <td><input type="number" name="unit_rate" step="0.01" class="form-control form-control-sm"></td>
+                            <td><input type="number" name="length" step="0.01" class="form-control form-control-sm"></td>
+                            <td><input type="number" name="height" step="0.01" class="form-control form-control-sm"></td>
+                            <td><input type="number" name="width" step="0.01" class="form-control form-control-sm"></td>
+                            <td><button type="button" class="btn btn-sm btn-danger remove-row">✕</button></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <button type="button" class="btn btn-sm btn-secondary" id="addRow">Add Row</button>
+            <div class="mt-3">
+                <button type="submit" class="btn btn-success">Save Items</button>
+                <a href="{% url 'quotation_detail' quotation.pk %}" class="btn btn-info">View Quotation</a>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const table = document.getElementById('itemsTable').querySelector('tbody');
+        document.getElementById('addRow').addEventListener('click', function() {
+            const rowCount = table.rows.length + 1;
+            const newRow = document.createElement('tr');
+            newRow.innerHTML = `
+                <td>${rowCount}</td>
+                <td><input type="text" name="description" class="form-control form-control-sm"></td>
+                <td><input type="text" name="type" class="form-control form-control-sm"></td>
+                <td><input type="text" name="flange_box" class="form-control form-control-sm"></td>
+                <td><input type="number" name="cfm" class="form-control form-control-sm"></td>
+                <td><input type="number" name="qty" class="form-control form-control-sm"></td>
+                <td><input type="number" name="unit_rate" step="0.01" class="form-control form-control-sm"></td>
+                <td><input type="number" name="length" step="0.01" class="form-control form-control-sm"></td>
+                <td><input type="number" name="height" step="0.01" class="form-control form-control-sm"></td>
+                <td><input type="number" name="width" step="0.01" class="form-control form-control-sm"></td>
+                <td><button type="button" class="btn btn-sm btn-danger remove-row">✕</button></td>
+            `;
+            table.appendChild(newRow);
+            // Re-number rows
+            updateRowNumbers();
+        });
+
+        table.addEventListener('click', function(e) {
+            if (e.target.classList.contains('remove-row')) {
+                if (table.rows.length > 1) {
+                    e.target.closest('tr').remove();
+                    updateRowNumbers();
+                } else {
+                    alert('Cannot remove the last row.');
+                }
+            }
+        });
+
+        function updateRowNumbers() {
+            const rows = table.querySelectorAll('tr');
+            rows.forEach((row, index) => {
+                row.cells[0].textContent = index + 1;
+            });
+        }
+    });
+</script>
+{% endblock %}

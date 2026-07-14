@@ -14,6 +14,7 @@ urlpatterns = [
     path('dropdowns/', include('dropdowns.urls')),
     path('templates/', include('templatesapp.urls')),
     path('documents/', include('documents.urls')),
+    path('quotations/', include('quotations.urls')),
 ]
 
 if settings.DEBUG:

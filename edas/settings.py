@@ -35,6 +35,7 @@ INSTALLED_APPS = [
      # Third-party
     'corsheaders',
     'rest_framework',
+    'background_task',
     # Local
     'accounts',
     'companies',
@@ -45,6 +46,7 @@ INSTALLED_APPS = [
     'documents',
     'sequences',
     'audit',
+    'quotations',
 ]
 
 MIDDLEWARE = [
@@ -181,4 +183,22 @@ BASE_URL = env('BASE_URL', default='http://localhost:8000')
 # Default primary key
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-PDF_ENGINE = env('PDF_ENGINE', default='weasyprint')  # or 'pdfkit'
+PDF_ENGINE = env('PDF_ENGINE', default='weasyprint') 
+
+# Django-Q configuration
+Q_CLUSTER = {
+    'name': 'EDAS',
+    'workers': 1,                     # Number of worker processes
+    'recycle': 500,                   # Restart workers after 500 tasks
+    'timeout': 300,                   # Task timeout in seconds (5 minutes)
+    'retry': 360,                     # Retry after 6 minutes
+    'save_limit': 250,                # Number of successful tasks to keep
+    'queue_limit': 500,               # Max number of queued tasks
+    'cpu_affinity': 1,                # Bind to one CPU core
+    'label': 'Django Q Cluster',
+    'redis': None,                    # Use database broker (no Redis)
+    'db': 'default',                  # Use the default database
+    'sync': False,                    # Run tasks asynchronously
+    'catch_up': False,                # Don't catch up on missed tasks
+    'orm': 'default',                 # Use default ORM
+}

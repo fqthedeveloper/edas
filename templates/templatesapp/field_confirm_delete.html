@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Delete Field{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-body">
+        <h3>Are you sure you want to delete the field "{{ object.label }}"?</h3>
+        <p>This will also remove it from documents using this template.</p>
+        <form method="post">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">Confirm Delete</button>
+            <a href="{% url 'template_field_list' object.template.pk %}" class="btn btn-secondary">Cancel</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

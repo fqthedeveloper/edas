@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Quotations{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Quotations</h2>
+    <a href="{% url 'quotation_create' %}" class="btn btn-primary">New Quotation</a>
+</div>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Number</th>
+            <th>Client</th>
+            <th>Date</th>
+            <th>Total</th>
+            <th>Status</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for q in quotations %}
+        <tr>
+            <td>{{ q.quotation_number }}</td>
+            <td>{{ q.client.name }}</td>
+            <td>{{ q.date|date:"Y-m-d" }}</td>
+            <td>{{ q.final_total }}</td>
+            <td><span class="badge bg-{% if q.status == 'draft' %}secondary{% elif q.status == 'sent' %}primary{% elif q.status == 'approved' %}success{% else %}danger{% endif %}">{{ q.get_status_display }}</span></td>
+            <td>
+                <a href="{% url 'quotation_detail' q.pk %}" class="btn btn-sm btn-info">View</a>
+                <a href="{% url 'quotation_pdf' q.pk %}" class="btn btn-sm btn-primary">PDF</a>
+            </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-center">No quotations.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

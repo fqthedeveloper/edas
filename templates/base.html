@@ -24,6 +24,13 @@
             box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
         }
 
+        
+        /* Utility: make images responsive */
+        img {
+            max-width: 100%;
+            height: auto;
+            display: block;
+        }
         .navbar-brand {
             font-weight: 700;
             letter-spacing: 0.02em;
@@ -61,6 +68,7 @@
         .btn {
             border-radius: 999px;
             padding: 0.6rem 1rem;
+            min-height: 38px;
         }
 
         .btn-sm {
@@ -116,6 +124,7 @@
         .table-responsive {
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
+            width: 100%;
         }
 
         .table th,
@@ -162,7 +171,8 @@
             }
 
             .btn {
-                width: 100%;
+                width: auto;
+                display: inline-block;
                 margin-bottom: 0.5rem;
             }
 
@@ -170,6 +180,11 @@
                 width: auto;
             }
 
+            /* Improve focus visibility for keyboard users */
+            a:focus, button:focus, input:focus, select:focus, textarea:focus {
+                outline: 3px solid rgba(79, 70, 229, 0.18);
+                outline-offset: 2px;
+            }
             .d-flex.justify-content-between {
                 flex-direction: column;
                 align-items: flex-start !important;
@@ -179,12 +194,17 @@
             .table td {
                 white-space: normal;
             }
+
+            .container {
+                padding-left: 0.75rem;
+                padding-right: 0.75rem;
+            }
         }
     </style>
     {% block extra_head %}{% endblock %}
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark" aria-label="Main navigation">
         <div class="container">
             <a class="navbar-brand" href="{% url 'dashboard' %}">EDAS</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
@@ -198,9 +218,16 @@
                         <li class="nav-item"><a class="nav-link" href="{% url 'product_list' %}">Products</a></li>
                         <li class="nav-item"><a class="nav-link" href="{% url 'template_list' %}">Templates</a></li>
                         <li class="nav-item"><a class="nav-link" href="{% url 'dropdown_list' %}">Dropdowns</a></li>
-                        <li class="nav-item"><a class="nav-link" href="{% url 'logout' %}">Logout</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'quotation_list' %}">Quotations</a></li>
+                        <li class="nav-item">
+                            <form action="{% url 'logout' %}" method="post" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="nav-link btn btn-link" style="border: none; padding: 0.35rem 0.5rem;">Logout</button>
+                            </form>
+                        </li>
                     {% else %}
                         <li class="nav-item"><a class="nav-link" href="{% url 'login' %}">Login</a></li>
+                        <li class="nav-item"><a class="nav-link" href="{% url 'verify_form' %}">Verify Document</a></li>
                     {% endif %}
                 </ul>
             </div>

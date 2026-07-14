@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}New Quotation{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header"><h3>Create Quotation</h3></div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button type="submit" class="btn btn-success">Save & Add Items</button>
+            <a href="{% url 'quotation_list' %}" class="btn btn-secondary">Cancel</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

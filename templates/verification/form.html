@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Verify Document{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h3>Document Verification</h3>
+            </div>
+            <div class="card-body">
+                <p>Enter the document number (e.g., <strong>AFPL/2026-27/123</strong>) to verify its authenticity.</p>
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="document_number" class="form-label">Document Number</label>
+                        <input type="text" name="document_number" id="document_number" class="form-control" placeholder="e.g., AFPL/2026-27/123" value="{{ document_number|default:'' }}" required>
+                    </div>
+                    {% if error %}
+                        <div class="alert alert-danger">{{ error }}</div>
+                    {% endif %}
+                    <button type="submit" class="btn btn-primary">Verify</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

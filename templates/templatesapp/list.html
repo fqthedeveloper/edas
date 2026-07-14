@@ -1,47 +1,36 @@
 {% extends "base.html" %}
 {% block title %}Templates{% endblock %}
 {% block content %}
-<div class="page-heading">
-    <h2 class="mb-0">Document Templates</h2>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Document Templates</h2>
     <a href="{% url 'template_add' %}" class="btn btn-primary">Add Template</a>
 </div>
-<div class="card">
-    <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-striped align-middle">
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Type</th>
-                        <th>Page Size</th>
-                        <th>Active</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for template in templates %}
-                    <tr>
-                        <td>{{ template.name }}</td>
-                        <td>{{ template.template_type }}</td>
-                        <td>{{ template.page_size }}</td>
-                        <td>
-                            {% if template.is_active %}
-                                <span class="badge bg-success">Yes</span>
-                            {% else %}
-                                <span class="badge bg-secondary">No</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <a href="{% url 'template_edit' template.pk %}" class="btn btn-sm btn-warning">Edit</a>
-                            <a href="{% url 'template_delete' template.pk %}" class="btn btn-sm btn-danger">Delete</a>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="5" class="text-center">No templates found.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-</div>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Type</th>
+            <th>Page Size</th>
+            <th>Active</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for template in templates %}
+        <tr>
+            <td>{{ template.name }}</td>
+            <td>{{ template.template_type }}</td>
+            <td>{{ template.page_size }}</td>
+            <td>{% if template.is_active %}<span class="badge bg-success">Yes</span>{% else %}<span class="badge bg-secondary">No</span>{% endif %}</td>
+            <td>
+                <a href="{% url 'template_edit' template.pk %}" class="btn btn-sm btn-warning">Edit</a>
+                <a href="{% url 'template_delete' template.pk %}" class="btn btn-sm btn-danger">Delete</a>
+                <a href="{% url 'template_field_list' template.pk %}" class="btn btn-sm btn-info">Manage Fields</a>
+            </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="text-center">No templates found.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
 {% endblock %}

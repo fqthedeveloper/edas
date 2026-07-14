@@ -13,6 +13,7 @@
                 <a href="{% url 'download_pdf' doc.id %}" class="btn btn-primary">Download PDF</a>
                 <a href="{% url 'download_docx' doc.id %}" class="btn btn-secondary">Download DOCX</a>
                 <a href="{% url 'document_preview' doc.id %}" target="_blank" class="btn btn-info">Preview</a>
+                <a href="{% url 'regenerate_document' doc.id %}" class="btn btn-warning" onclick="return confirm('Regenerate this document?')">Regenerate</a>
             </div>
         {% elif doc.status == 'processing' %}
             <p>Your document is being generated. Please refresh in a few moments.</p>

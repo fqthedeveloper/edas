@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}Quotation Detail{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header"><h3>Quotation {{ quotation.quotation_number }}</h3></div>
+    <div class="card-body">
+        <p><strong>Client:</strong> {{ quotation.client.name }}</p>
+        <p><strong>Date:</strong> {{ quotation.date }}</p>
+        <p><strong>Valid Until:</strong> {{ quotation.valid_until }}</p>
+        <p><strong>Status:</strong> {{ quotation.get_status_display }}</p>
+        <h5>Items</h5>
+        <table class="table table-bordered">
+            <thead>
+                <tr><th>#</th><th>Description</th><th>Type</th><th>Flange/Box</th><th>CFM</th><th>Qty</th><th>Unit Rate</th><th>Amount</th></tr>
+            </thead>
+            <tbody>
+                {% for item in quotation.items.all %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td>{{ item.description }}</td>
+                    <td>{{ item.type }}</td>
+                    <td>{{ item.flange_box }}</td>
+                    <td>{{ item.cfm }}</td>
+                    <td>{{ item.qty }}</td>
+                    <td>{{ item.unit_rate }}</td>
+                    <td>{{ item.amount }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <div class="text-end">
+            <p><strong>Subtotal:</strong> {{ quotation.subtotal }}</p>
+            <p><strong>Discount ({{ quotation.discount_percent }}%):</strong> {{ quotation.discount_amount }}</p>
+            <p><strong>Tax ({{ quotation.tax_percent }}%):</strong> {{ quotation.tax_amount }}</p>
+            <p><strong>Shipping:</strong> {{ quotation.shipping_charge }}</p>
+            <p><strong>Grand Total:</strong> {{ quotation.final_total }}</p>
+        </div>
+        <div class="mt-3">
+            <a href="{% url 'quotation_pdf' quotation.pk %}" class="btn btn-primary">Download PDF</a>
+            <a href="{% url 'quotation_edit_items' quotation.pk %}" class="btn btn-warning">Edit Items</a>
+            <a href="{% url 'quotation_list' %}" class="btn btn-secondary">Back</a>
+        </div>
+    </div>
+</div>
+{% endblock %}

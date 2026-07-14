@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Fields for {{ template.name }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2>Fields for "{{ template.name }}"</h2>
+    <div>
+        <a href="{% url 'template_field_add' template.pk %}" class="btn btn-primary">Add Field</a>
+        <a href="{% url 'template_list' %}" class="btn btn-secondary">Back to Templates</a>
+    </div>
+</div>
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Order</th>
+            <th>Field Name</th>
+            <th>Label</th>
+            <th>Type</th>
+            <th>Required</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for field in fields %}
+        <tr>
+            <td>{{ field.order }}</td>
+            <td>{{ field.field_name }}</td>
+            <td>{{ field.label }}</td>
+            <td>{{ field.get_field_type_display }}</td>
+            <td>{% if field.validation_rules.required %}<span class="badge bg-danger">Yes</span>{% else %}<span class="badge bg-secondary">No</span>{% endif %}</td>
+            <td>
+                <a href="{% url 'template_field_edit' field.pk %}" class="btn btn-sm btn-warning">Edit</a>
+                <a href="{% url 'template_field_delete' field.pk %}" class="btn btn-sm btn-danger">Delete</a>
+            </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="6" class="text-center">No fields defined for this template.</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

@@ -3,44 +3,132 @@
 {% block content %}
 <div class="page-heading">
     <h2 class="mb-0">All Documents</h2>
-    <a href="{% url 'document_step1' %}" class="btn btn-primary">New Document</a>
 </div>
-<div class="card">
+
+<!-- Filters -->
+<div class="card mb-3">
     <div class="card-body">
-        <div class="table-responsive">
-            <table class="table table-hover align-middle">
-                <thead>
-                    <tr>
-                        <th>Number</th>
-                        <th>Client</th>
-                        <th>Product</th>
-                        <th>Date</th>
-                        <th>Status</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for doc in documents %}
-                    <tr>
-                        <td>{{ doc.document_number }}</td>
-                        <td>{{ doc.client.name }}</td>
-                        <td>{{ doc.product.name }}</td>
-                        <td>{{ doc.created_at|date:"Y-m-d" }}</td>
-                        <td><span class="badge bg-{% if doc.status == 'generated' %}success{% elif doc.status == 'processing' %}warning{% else %}secondary{% endif %}">{{ doc.get_status_display }}</span></td>
-                        <td>
-                            <a href="{% url 'document_status' doc.id %}" class="btn btn-sm btn-info">View</a>
-                            {% if doc.status == 'generated' %}
-                                <a href="{% url 'download_pdf' doc.id %}" class="btn btn-sm btn-primary">PDF</a>
-                                <a href="{% url 'download_docx' doc.id %}" class="btn btn-sm btn-secondary">DOCX</a>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="6" class="text-center">No documents yet.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
+        <form method="get" class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label for="search" class="form-label">Search</label>
+                <input type="text" name="search" id="search" class="form-control" placeholder="Number, client, product..." value="{{ search }}">
+            </div>
+            <div class="col-md-2">
+                <label for="date_from" class="form-label">From</label>
+                <input type="date" name="date_from" id="date_from" class="form-control" value="{{ date_from|default:'' }}">
+            </div>
+            <div class="col-md-2">
+                <label for="date_to" class="form-label">To</label>
+                <input type="date" name="date_to" id="date_to" class="form-control" value="{{ date_to|default:'' }}">
+            </div>
+            <div class="col-md-2">
+                <label for="status" class="form-label">Status</label>
+                <select name="status" id="status" class="form-select">
+                    <option value="">All</option>
+                    <option value="draft" {% if status_filter == 'draft' %}selected{% endif %}>Draft</option>
+                    <option value="processing" {% if status_filter == 'processing' %}selected{% endif %}>Processing</option>
+                    <option value="generated" {% if status_filter == 'generated' %}selected{% endif %}>Generated</option>
+                    <option value="failed" {% if status_filter == 'failed' %}selected{% endif %}>Failed</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">Filter</button>
+            </div>
+            <div class="col-md-1">
+                <a href="{% url 'document_list' %}" class="btn btn-secondary w-100">Clear</a>
+            </div>
+        </form>
     </div>
 </div>
+
+<!-- Bulk Actions -->
+<form method="post" action="{% url 'bulk_action' %}" id="bulkForm">
+    {% csrf_token %}
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        <button type="submit" name="action" value="download_pdf" class="btn btn-sm btn-primary">Download PDFs (ZIP)</button>
+        <button type="submit" name="action" value="download_docx" class="btn btn-sm btn-secondary">Download DOCXs (ZIP)</button>
+        <button type="submit" name="action" value="regenerate" class="btn btn-sm btn-warning">Regenerate Selected</button>
+        <button type="button" class="btn btn-sm btn-outline-success" onclick="selectAll()">Select All</button>
+        <button type="button" class="btn btn-sm btn-outline-danger" onclick="deselectAll()">Deselect All</button>
+        <a href="{% url 'document_step1' %}" class="btn btn-sm btn-success ms-auto">New Document</a>
+        <a href="{% url 'upload_excel' %}" class="btn btn-sm btn-info">Upload Excel</a>
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th><input type="checkbox" id="selectAllCheckbox" onclick="toggleAll(this)"></th>
+                    <th>Number</th>
+                    <th>Client</th>
+                    <th>Product</th>
+                    <th>Date</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for doc in documents %}
+                <tr>
+                    <td><input type="checkbox" name="doc_ids" value="{{ doc.id }}" class="doc-checkbox"></td>
+                    <td>{{ doc.document_number }}</td>
+                    <td>{{ doc.client.name }}</td>
+                    <td>{{ doc.product.name }}</td>
+                    <td>{{ doc.created_at|date:"Y-m-d H:i" }}</td>
+                    <td>
+                        <span class="badge bg-{% if doc.status == 'generated' %}success{% elif doc.status == 'processing' %}warning{% elif doc.status == 'failed' %}danger{% else %}secondary{% endif %}">
+                            {{ doc.get_status_display }}
+                        </span>
+                    </td>
+                    <td>
+                        <a href="{% url 'document_status' doc.id %}" class="btn btn-sm btn-info">View</a>
+                        {% if doc.status == 'generated' %}
+                            <a href="{% url 'download_pdf' doc.id %}" class="btn btn-sm btn-primary">PDF</a>
+                            <a href="{% url 'download_docx' doc.id %}" class="btn btn-sm btn-secondary">DOCX</a>
+                            <a href="{% url 'regenerate_document' doc.id %}" class="btn btn-sm btn-warning" onclick="return confirm('Regenerate this document?')">Regenerate</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="text-center">No documents found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</form>
+
+<!-- Pagination -->
+{% if documents.has_other_pages %}
+<nav aria-label="Page navigation">
+    <ul class="pagination justify-content-center">
+        {% if documents.has_previous %}
+            <li class="page-item"><a class="page-link" href="?page=1{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">&laquo;</a></li>
+            <li class="page-item"><a class="page-link" href="?page={{ documents.previous_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">‹</a></li>
+        {% endif %}
+        {% for num in documents.paginator.page_range %}
+            {% if documents.number == num %}
+                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+            {% elif num > documents.number|add:'-3' and num < documents.number|add:'3' %}
+                <li class="page-item"><a class="page-link" href="?page={{ num }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a></li>
+            {% endif %}
+        {% endfor %}
+        {% if documents.has_next %}
+            <li class="page-item"><a class="page-link" href="?page={{ documents.next_page_number }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">›</a></li>
+            <li class="page-item"><a class="page-link" href="?page={{ documents.paginator.num_pages }}{% for key,value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">&raquo;</a></li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+<script>
+function toggleAll(source) {
+    document.querySelectorAll('.doc-checkbox').forEach(cb => cb.checked = source.checked);
+}
+function selectAll() {
+    document.querySelectorAll('.doc-checkbox').forEach(cb => cb.checked = true);
+}
+function deselectAll() {
+    document.querySelectorAll('.doc-checkbox').forEach(cb => cb.checked = false);
+}
+</script>
 {% endblock %}

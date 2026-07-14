@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Upload Excel{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3>Bulk Document Generation from Excel</h3>
+    </div>
+    <div class="card-body">
+        <p>Upload an Excel file (.xlsx) with each row representing a document. The first row must contain column headers that match the field names of your templates.</p>
+        <p><strong>Special columns (case-sensitive):</strong></p>
+        <ul>
+            <li><code>client_name</code> – required, must match an existing client name</li>
+            <li><code>product_name</code> – required, must match an existing product name</li>
+            <li><code>template_name</code> – optional; if not provided, uses the default template from product or the form selection</li>
+            <li><code>tc_number</code> – optional; if omitted, auto-generates</li>
+        </ul>
+        <p><a href="{% url 'download_sample_excel' %}" class="btn btn-sm btn-info">📥 Download Sample Excel</a></p>
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            {{ form.as_p }}
+            <button type="submit" class="btn btn-primary">Upload & Generate</button>
+            <a href="{% url 'document_list' %}" class="btn btn-secondary">Cancel</a>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -12,4 +12,10 @@ urlpatterns = [
     path('dashboard/', views.dashboard, name='dashboard'),
     path('download/pdf/<int:doc_id>/', views.download_pdf, name='download_pdf'),
     path('download/docx/<int:doc_id>/', views.download_docx, name='download_docx'),
+    path('upload-excel/', views.upload_excel, name='upload_excel'),
+    path('download-sample-excel/', views.download_sample_excel, name='download_sample_excel'),
+    path('regenerate/<int:doc_id>/', views.regenerate_document, name='regenerate_document'),
+    path('bulk-action/', views.bulk_action, name='bulk_action'),
+    path('verify/', views.verify_form, name='verify_form'),  # form to enter number
+    path('verify/<path:document_number>/', views.verify_document, name='verify'), 
 ]
