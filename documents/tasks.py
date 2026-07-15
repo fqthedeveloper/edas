@@ -1,7 +1,6 @@
-# documents/tasks.py
 import logging
 from django.core.files.base import ContentFile
-from django.template import Template, Context
+from django.template import Template as DjangoTemplate, Context
 from django.conf import settings
 from background_task import background
 from .models import Document, DocumentValue
@@ -15,11 +14,8 @@ from sequences.services import mark_number_used
 
 logger = logging.getLogger(__name__)
 
-@background(schedule=0)  # 0 means run immediately
+@background(schedule=0)
 def generate_document_pdf_docx(document_id):
-    """
-    Background task to generate PDF and DOCX for a given document.
-    """
     logger.info(f"Starting document generation for ID: {document_id}")
 
     try:
@@ -28,15 +24,18 @@ def generate_document_pdf_docx(document_id):
         logger.error(f"Document {document_id} not found.")
         return
 
+    # Mark as processing to avoid duplicate runs
+    doc.status = 'processing'
+    doc.save()
+
     logger.info(f"Document: {doc.document_number}, Template: {doc.template.name}")
 
-    # Build context from DocumentValue
+    # Build context
     context = {}
     for val in doc.values.all():
         context[val.field.field_name] = val.value
         logger.info(f"Field: {val.field.field_name} = {val.value}")
 
-    # Add company and document
     company = doc.client.company
     context['company'] = company
     context['document'] = doc
@@ -45,7 +44,7 @@ def generate_document_pdf_docx(document_id):
     logger.info(f"Context keys: {list(context.keys())}")
 
     # ---- Generate QR code ----
-    qr_data = f"{context['base_url']}/verify/{doc.document_number}"
+    qr_data = f"{context['base_url']}/documents/verify/{doc.document_number}"
     try:
         qr_bytes = generate_qr_code(qr_data)
         doc.qr_code.save(f"{doc.document_number}_qr.png", ContentFile(qr_bytes), save=False)
@@ -69,7 +68,7 @@ def generate_document_pdf_docx(document_id):
 
     # ---- Generate PDF ----
     try:
-        html_string = Template(doc.template.html_layout).render(Context(context))
+        html_string = DjangoTemplate(doc.template.html_layout).render(Context(context))
         logger.info(f"HTML length: {len(html_string)} characters")
         pdf_bytes = generate_pdf_from_html(html_string)
         doc.generated_pdf.save(f"{doc.document_number}.pdf", ContentFile(pdf_bytes), save=False)

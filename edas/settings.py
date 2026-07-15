@@ -52,6 +52,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'corsheaders.middleware.CorsMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -202,3 +203,12 @@ Q_CLUSTER = {
     'catch_up': False,                # Don't catch up on missed tasks
     'orm': 'default',                 # Use default ORM
 }
+
+STORAGE = {
+    "static": {
+        "backend": "django.core.files.storage.FileSystemStorage",
+        "location": STATIC_ROOT,
+    },
+}
+
+QUEUE_PROCESS_TOKEN = env('QUEUE_PROCESS_TOKEN', default='change-me')

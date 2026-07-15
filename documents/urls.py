@@ -18,4 +18,5 @@ urlpatterns = [
     path('bulk-action/', views.bulk_action, name='bulk_action'),
     path('verify/', views.verify_form, name='verify_form'),  # form to enter number
     path('verify/<path:document_number>/', views.verify_document, name='verify'), 
+    path('process-queue/', views.process_queue, name='process_queue'),
 ]

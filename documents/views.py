@@ -14,7 +14,8 @@ from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.views.decorators.http import require_POST
 from django.utils.dateparse import parse_date
 from django.template import Template as DjangoTemplate, Context
-
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 from clients.models import Client
 from products.models import Product
 from templatesapp.models import Template, TemplateField
@@ -22,7 +23,7 @@ from .models import Document, DocumentValue
 from .forms import build_dynamic_form, ExcelUploadForm
 from sequences.services import get_next_number
 from .tasks import generate_document_pdf_docx
-
+from django.conf import settings
 
 # ---------- STEP 1 ----------
 @login_required
@@ -512,3 +513,33 @@ def bulk_action(request):
     else:
         messages.error(request, 'Invalid action.')
         return redirect('document_list')
+    
+
+@csrf_exempt
+def process_queue(request):
+    
+    token = request.GET.get('token') or request.POST.get('token')
+    expected = getattr(settings, 'QUEUE_PROCESS_TOKEN', 'change-me').strip()
+    if token != expected:
+        return JsonResponse({'error': 'Invalid token'}, status=403)
+   
+    MAX_PER_RUN = 5
+    processed = 0
+    errors = 0
+    pending_docs = Document.objects.filter(status='draft').order_by('created_at')[:MAX_PER_RUN]
+
+    from .tasks import generate_document_pdf_docx
+
+    for doc in pending_docs:
+        try:
+            generate_document_pdf_docx(doc.id)
+            processed += 1
+        except Exception as e:
+            errors += 1
+
+    return JsonResponse({
+        'status': 'ok',
+        'processed': processed,
+        'errors': errors,
+        'remaining': Document.objects.filter(status='draft').count()
+    })

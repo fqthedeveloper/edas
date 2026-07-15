@@ -7,12 +7,10 @@ from django.conf import settings
 from docxtpl import DocxTemplate
 
 def generate_pdf_from_html(html_string):
-    """Generate PDF from HTML string using WeasyPrint"""
     try:
         from weasyprint import HTML
         return HTML(string=html_string).write_pdf()
     except ImportError:
-        # Fallback to pdfkit if WeasyPrint is not available
         import pdfkit
         options = {
             'page-size': 'A4',
@@ -25,7 +23,6 @@ def generate_pdf_from_html(html_string):
         return pdfkit.from_string(html_string, False, options=options)
 
 def generate_docx_from_template(template_path, context):
-    """Generate DOCX from template using docxtpl"""
     doc = DocxTemplate(template_path)
     doc.render(context)
     output = io.BytesIO()
@@ -34,7 +31,6 @@ def generate_docx_from_template(template_path, context):
     return output.read()
 
 def generate_qr_code(data):
-    """Generate QR code image as bytes"""
     qr = qrcode.QRCode(version=1, box_size=10, border=5)
     qr.add_data(data)
     qr.make(fit=True)
@@ -45,7 +41,6 @@ def generate_qr_code(data):
     return output.read()
 
 def generate_barcode(code):
-    """Generate barcode image as bytes"""
     barcode_class = barcode.get_barcode_class('code128')
     barcode_img = barcode_class(code, writer=ImageWriter())
     output = io.BytesIO()
