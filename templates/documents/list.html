@@ -46,6 +46,7 @@
     {% csrf_token %}
     <div class="d-flex flex-wrap gap-2 mb-3">
         <button type="submit" name="action" value="download_pdf" class="btn btn-sm btn-primary">Download PDFs (ZIP)</button>
+        <button type="submit" name="action" value="merge_pdfs" class="btn btn-sm btn-success">Merge PDFs (Single PDF)</button>
         <button type="submit" name="action" value="download_docx" class="btn btn-sm btn-secondary">Download DOCXs (ZIP)</button>
         <button type="submit" name="action" value="regenerate" class="btn btn-sm btn-warning">Regenerate Selected</button>
         <button type="button" class="btn btn-sm btn-outline-success" onclick="selectAll()">Select All</button>
@@ -82,6 +83,7 @@
                     </td>
                     <td>
                         <a href="{% url 'document_status' doc.id %}" class="btn btn-sm btn-info">View</a>
+                        <a href="{% url 'document_edit' doc.id %}" class="btn btn-sm btn-warning">Edit</a>
                         {% if doc.status == 'generated' %}
                             <a href="{% url 'download_pdf' doc.id %}" class="btn btn-sm btn-primary">PDF</a>
                             <a href="{% url 'download_docx' doc.id %}" class="btn btn-sm btn-secondary">DOCX</a>

@@ -5,7 +5,7 @@ from django.conf.urls.static import static
 from documents.views import dashboard, verify_document
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    path('monster/', admin.site.urls),
     path('', dashboard, name='dashboard'),  # home
     path('verify/<str:document_number>/', verify_document, name='verify'),
     path('accounts/', include('accounts.urls')),

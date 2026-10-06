@@ -34,7 +34,6 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
      # Third-party
     'corsheaders',
-    'rest_framework',
     'background_task',
     # Local
     'accounts',
@@ -45,7 +44,6 @@ INSTALLED_APPS = [
     'dropdowns',
     'documents',
     'sequences',
-    'audit',
     'quotations',
 ]
 
@@ -59,7 +57,6 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'audit.middleware.AuditLogMiddleware',  # custom
 ]
 
 ROOT_URLCONF = 'edas.urls'
@@ -148,43 +145,38 @@ AUTH_USER_MODEL = 'accounts.User'
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'login'
+# HTTPS Settings
+SECURE_SSL_REDIRECT = True                    # Redirect HTTP → HTTPS
+SESSION_COOKIE_SECURE = True                  # Only send session cookies over HTTPS
+CSRF_COOKIE_SECURE = True                     # Only send CSRF cookies over HTTPS
 
-# Email
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = env('EMAIL_HOST')
-EMAIL_PORT = env.int('EMAIL_PORT')
-EMAIL_HOST_USER = env('EMAIL_HOST_USER')
-EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD')
-EMAIL_USE_TLS = True
-DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL')
+# HSTS (HTTP Strict Transport Security)
+SECURE_HSTS_SECONDS = 31536000                # 1 year (force HTTPS for 1 year)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True         # Apply to all subdomains
+SECURE_HSTS_PRELOAD = True                    # Allow preloading (optional)
+
+# Prevent browser MIME type sniffing
+SECURE_CONTENT_TYPE_NOSNIFF = True
+
+# Enable XSS filter
+SECURE_BROWSER_XSS_FILTER = True
 
 
-# Celery settings
-CELERY_BROKER_URL = env('REDIS_URL')
-CELERY_RESULT_BACKEND = env('REDIS_URL')
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = TIME_ZONE
-
-# For Windows development, use solo pool (or threads)
-# This sets the default worker pool for the `celery` command.
-CELERYD_POOL = 'solo'   # or 'threads'
-CELERYD_CONCURRENCY = 1
-
-# Avoid the warning about broker_connection_retry_on_startup
-CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
-
+# CSRF trusted origins (for POST requests)
+CSRF_TRUSTED_ORIGINS = [
+    'https://airfil.pythonanywhere.com',
+    # Add https://your-custom-domain.com
+]
 # CORS (if using API later)
 CORS_ALLOW_ALL_ORIGINS = False
-CORS_ALLOWED_ORIGINS = ['http://localhost:8000']
+CORS_ALLOWED_ORIGINS = ['https://airfil.pythonanywhere.com/']
 
-BASE_URL = env('BASE_URL', default='http://localhost:8000')
+BASE_URL = env('BASE_URL', default='https://airfil.pythonanywhere.com')
 
 # Default primary key
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-PDF_ENGINE = env('PDF_ENGINE', default='weasyprint') 
+PDF_ENGINE = env('PDF_ENGINE', default='weasyprint')
 
 # Django-Q configuration
 Q_CLUSTER = {

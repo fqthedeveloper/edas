@@ -1,10 +1,12 @@
 import datetime
+import json
 import io
 import zipfile
+import logging
 import openpyxl
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponse, HttpResponseNotFound
+from django.http import HttpResponse, JsonResponse
 from django.contrib import messages
 from django.db import transaction
 from django.db.models import Q
@@ -14,16 +16,19 @@ from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.views.decorators.http import require_POST
 from django.utils.dateparse import parse_date
 from django.template import Template as DjangoTemplate, Context
-from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings
+
 from clients.models import Client
 from products.models import Product
 from templatesapp.models import Template, TemplateField
 from .models import Document, DocumentValue
 from .forms import build_dynamic_form, ExcelUploadForm
 from sequences.services import get_next_number
-from .tasks import generate_document_pdf_docx
-from django.conf import settings
+from .tasks import generate_document_pdf_docx, _generate_document
+
+logger = logging.getLogger(__name__)
+
 
 # ---------- STEP 1 ----------
 @login_required
@@ -43,7 +48,6 @@ def document_wizard_step2(request):
     return render(request, 'documents/step2.html', {'client': client, 'products': products})
 
 
-# ---------- STEP 3 ----------
 @login_required
 def document_wizard_step3(request):
     client_id = request.GET.get('client')
@@ -58,6 +62,7 @@ def document_wizard_step3(request):
     if not template:
         return render(request, 'documents/error.html', {'msg': 'No template defined for this product/client.'})
 
+    # Build initial data
     initial = {}
     initial['client_name'] = client.name
     initial['client_address'] = client.address
@@ -74,16 +79,21 @@ def document_wizard_step3(request):
     initial['date'] = today.isoformat()
     initial['testing_date'] = today.isoformat()
 
+    # TC Number Reservation via Session
     prefix = 'AFPL/2026-27/'
-    next_num = get_next_number(prefix)
-    initial['tc_number'] = f"{prefix}{next_num}"
+    session_key = f'tc_reserved_{prefix}'
+    if session_key not in request.session:
+        next_num = get_next_number(prefix)
+        request.session[session_key] = f"{prefix}{next_num}"
+    tc_number = request.session[session_key]
+    initial['tc_number'] = tc_number
 
     if request.method == 'POST':
         form_class = build_dynamic_form(template.id, data=request.POST)
         form = form_class(request.POST)
 
         if form.is_valid():
-            tc_number = form.cleaned_data.get('tc_number', initial['tc_number'])
+            tc_number = form.cleaned_data.get('tc_number', tc_number)
             if Document.objects.filter(document_number=tc_number).exists():
                 form.add_error('tc_number', 'This TC number already exists. Please enter a unique number.')
                 return render(request, 'documents/step3.html', {'form': form, 'template': template})
@@ -95,6 +105,7 @@ def document_wizard_step3(request):
                 else:
                     serializable_data[key] = value
 
+            # Create document (status='draft' initially)
             doc = Document.objects.create(
                 client=client,
                 product=product,
@@ -105,6 +116,7 @@ def document_wizard_step3(request):
                 form_data=serializable_data
             )
 
+            # Save DocumentValue records
             for field_name, value in form.cleaned_data.items():
                 try:
                     tfield = TemplateField.objects.get(template=template, field_name=field_name)
@@ -116,7 +128,17 @@ def document_wizard_step3(request):
                     str_value = str(value)
                 DocumentValue.objects.create(document=doc, field=tfield, value=str_value)
 
-            generate_document_pdf_docx(doc.id)
+            # Clear the reserved TC number from session
+            if session_key in request.session:
+                del request.session[session_key]
+
+            # ---- SYNCHRONOUS GENERATION (IMMEDIATE) ----
+            success = _generate_document(doc)
+            if not success:
+                messages.error(request, 'Document generation failed. Please check logs.')
+            else:
+                messages.success(request, f'Document {doc.document_number} generated successfully.')
+
             return redirect('document_status', doc.id)
         else:
             return render(request, 'documents/step3.html', {'form': form, 'template': template})
@@ -270,76 +292,110 @@ def download_docx(request, doc_id):
         return response
     return HttpResponse('DOCX not ready yet', status=404)
 
+def json_safe(obj):
+    """Convert objects to JSON‑serializable format."""
+    if isinstance(obj, datetime.datetime):
+        return obj.date().isoformat()
+    if isinstance(obj, datetime.date):
+        return obj.isoformat()
+    if isinstance(obj, datetime.time):
+        return obj.isoformat()
+    if isinstance(obj, dict):
+        return {k: json_safe(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [json_safe(v) for v in obj]
+    if isinstance(obj, str):
+        if "T" in obj:
+            try:
+                return datetime.datetime.fromisoformat(obj).date().isoformat()
+            except ValueError:
+                pass
+        return obj
+    if obj is None:
+        return ""
+    return obj
 
-# ---------- Excel Bulk Upload ----------
+
 @login_required
 def upload_excel(request):
-    if request.method == 'POST':
+    if request.method == "POST":
         form = ExcelUploadForm(request.POST, request.FILES)
+
         if form.is_valid():
-            excel_file = request.FILES['excel_file']
-            default_template = form.cleaned_data.get('template')
+            excel_file = request.FILES["excel_file"]
+            default_template = form.cleaned_data.get("template")
 
             try:
                 wb = openpyxl.load_workbook(excel_file)
             except Exception as e:
-                messages.error(request, f'Invalid Excel file: {str(e)}')
-                return redirect('upload_excel')
+                messages.error(request, f"Invalid Excel file: {e}")
+                return redirect("upload_excel")
 
             sheet = wb.active
             headers = [cell.value for cell in sheet[1]]
-            if not headers:
-                messages.error(request, 'The file appears empty.')
-                return redirect('upload_excel')
 
-            special_columns = ['client_name', 'product_name', 'template_name', 'tc_number']
-            field_names = [h for h in headers if h and h not in special_columns]
-            row_count = 0
+            if not headers:
+                messages.error(request, "The Excel file is empty.")
+                return redirect("upload_excel")
+
+            today = datetime.date.today().isoformat()
+            success_count = 0
             errors = []
 
-            for row_idx, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=2):
+            for row_idx, row in enumerate(
+                sheet.iter_rows(min_row=2, values_only=True),
+                start=2,
+            ):
                 if not any(row):
                     continue
 
                 row_data = dict(zip(headers, row))
-                client_name = row_data.get('client_name')
-                product_name = row_data.get('product_name')
-                template_name = row_data.get('template_name')
-                tc_number = row_data.get('tc_number')
+                row_data = json_safe(row_data)
+
+                client_name = row_data.get("client_name")
+                product_name = row_data.get("product_name")
+                template_name = row_data.get("template_name")
+                tc_number = row_data.get("tc_number")
+
+                if not row_data.get("date"):
+                    row_data["date"] = today
+                if not row_data.get("testing_date"):
+                    row_data["testing_date"] = today
 
                 if not client_name:
-                    errors.append(f'Row {row_idx}: client_name is required.')
+                    errors.append(f"Row {row_idx}: client_name is required.")
                     continue
                 if not product_name:
-                    errors.append(f'Row {row_idx}: product_name is required.')
+                    errors.append(f"Row {row_idx}: product_name is required.")
                     continue
 
-                # Auto-create client if not exists
+                # ----- Client -----
                 try:
                     client = Client.objects.get(name__iexact=client_name, is_active=True)
                 except Client.DoesNotExist:
-                    from companies.models import Company
-                    default_company = Company.objects.first()
-                    if not default_company:
-                        errors.append(f'Row {row_idx}: No company exists to associate new client "{client_name}".')
+                    company = Company.objects.first()
+                    if not company:
+                        errors.append(f'Row {row_idx}: No company found for client "{client_name}".')
                         continue
                     client = Client.objects.create(
-                        company=default_company,
+                        company=company,
                         name=client_name,
-                        address='',
-                        email='',
-                        phone='',
-                        contact_person='',
-                        is_active=True
+                        address="",
+                        email="",
+                        phone="",
+                        contact_person="",
+                        is_active=True,
                     )
-                    messages.info(request, f'Created new client: "{client_name}"')
+                    messages.info(request, f'Created client "{client_name}".')
 
+                # ----- Product -----
                 try:
                     product = Product.objects.get(name__iexact=product_name)
                 except Product.DoesNotExist:
                     errors.append(f'Row {row_idx}: Product "{product_name}" not found.')
                     continue
 
+                # ----- Template -----
                 if template_name:
                     try:
                         template = Template.objects.get(name__iexact=template_name, is_active=True)
@@ -352,51 +408,95 @@ def upload_excel(request):
                     template = product.default_template
 
                 if not template:
-                    errors.append(f'Row {row_idx}: No template defined. Skipping.')
+                    errors.append(f"Row {row_idx}: No template selected.")
                     continue
 
+                # ----- TC Number Assignment -----
                 if not tc_number:
-                    prefix = 'AFPL/2026-27/'
+                    prefix = "AFPL/2026-27/"
                     tc_number = f"{prefix}{get_next_number(prefix)}"
                 else:
                     if Document.objects.filter(document_number=tc_number).exists():
-                        errors.append(f'Row {row_idx}: TC number "{tc_number}" already exists. Skipping.')
+                        errors.append(f'Row {row_idx}: TC Number "{tc_number}" already exists.')
                         continue
 
+                # ----- Build form_data from all columns -----
                 form_data = {}
-                for field_name in field_names:
-                    form_data[field_name] = row_data.get(field_name, '')
+                for header in headers:
+                    if header == "template_name":
+                        continue
+                    value = row_data.get(header)
+                    if value is None:
+                        value = ""
+                    form_data[header] = json_safe(value)
 
-                with transaction.atomic():
-                    doc = Document.objects.create(
-                        client=client,
-                        product=product,
-                        template=template,
-                        document_number=tc_number,
-                        status='draft',
-                        created_by=request.user,
-                        form_data=form_data
-                    )
-                    for field_name, value in form_data.items():
-                        try:
-                            tfield = TemplateField.objects.get(template=template, field_name=field_name)
-                        except TemplateField.DoesNotExist:
-                            continue
-                        DocumentValue.objects.create(document=doc, field=tfield, value=str(value))
+                # 🔥 IMPORTANT: Ensure tc_number is in form_data
+                form_data["tc_number"] = tc_number
+                form_data["date"] = json_safe(form_data.get("date") or today)
+                form_data["testing_date"] = json_safe(form_data.get("testing_date") or today)
 
-                    generate_document_pdf_docx(doc.id)
-                    row_count += 1
+                # Verify JSON safety
+                try:
+                    json.dumps(form_data)
+                except Exception as e:
+                    errors.append(f"Row {row_idx}: JSON Error -> {e}")
+                    continue
 
-            if errors:
-                for err in errors:
-                    messages.error(request, err)
-            if row_count > 0:
-                messages.success(request, f'Successfully processed {row_count} rows. Documents are being generated.')
-            return redirect('document_list')
+                # ----- Save Document -----
+                try:
+                    with transaction.atomic():
+                        document = Document.objects.create(
+                            client=client,
+                            product=product,
+                            template=template,
+                            document_number=tc_number,
+                            status="draft",
+                            created_by=request.user,
+                            form_data=form_data,
+                        )
+
+                        template_fields = {
+                            f.field_name: f
+                            for f in TemplateField.objects.filter(template=template)
+                        }
+
+                        values = []
+                        for field_name, value in form_data.items():
+                            field = template_fields.get(field_name)
+                            if not field:
+                                continue
+                            values.append(
+                                DocumentValue(
+                                    document=document,
+                                    field=field,
+                                    value=str(value),
+                                )
+                            )
+
+                        if values:
+                            DocumentValue.objects.bulk_create(values)
+
+                        # Generate PDF/DOCX synchronously
+                        success = _generate_document(document)
+                        if success:
+                            success_count += 1
+                        else:
+                            errors.append(f"Row {row_idx}: Failed to generate document.")
+
+                except Exception as e:
+                    errors.append(f"Row {row_idx}: {e}")
+
+            # Show results
+            for err in errors:
+                messages.error(request, err)
+            if success_count:
+                messages.success(request, f"Successfully processed {success_count} rows.")
+            return redirect("document_list")
+
     else:
         form = ExcelUploadForm()
 
-    return render(request, 'documents/upload_excel.html', {'form': form})
+    return render(request, "documents/upload_excel.html", {"form": form})
 
 
 # ---------- Download Sample Excel ----------
@@ -418,8 +518,8 @@ def download_sample_excel(request):
     ws.append(headers)
 
     sample = [
-        'Samarth Engineering Services', 'Fine Filter 3 Micron',
-        'Test Certificate – Fine Filter', '',
+        'Samarth Engineering Services', 'Fine Filter',
+        'Test Certificate', '',
         'PO-12345', '2026-07-14', 'SER/001', '2026-07-14',
         'VANE TYPE ANEMOMETER AND AEROSOL PHOTOMETER',
         'FINE FILTER -- 3 MICRON (FLANGE TYPE)',
@@ -444,17 +544,29 @@ def download_sample_excel(request):
 @login_required
 def regenerate_document(request, doc_id):
     doc = get_object_or_404(Document, id=doc_id)
-    if doc.status != 'generated':
-        messages.warning(request, 'Document is not in a generated state.')
+
+    if doc.status not in ['generated', 'failed', 'draft']:
+        messages.warning(request, 'Document is not in a valid state for regeneration.')
         return redirect('document_status', doc.id)
+
+    if doc.generated_pdf:
+        doc.generated_pdf.delete(save=False)
+    if doc.generated_docx:
+        doc.generated_docx.delete(save=False)
+    if doc.qr_code:
+        doc.qr_code.delete(save=False)
+    if doc.barcode:
+        doc.barcode.delete(save=False)
+
     doc.status = 'draft'
-    doc.generated_pdf.delete(save=False)
-    doc.generated_docx.delete(save=False)
-    doc.qr_code.delete(save=False)
-    doc.barcode.delete(save=False)
     doc.save()
-    generate_document_pdf_docx(doc.id)
-    messages.success(request, f'Document {doc.document_number} is being regenerated.')
+
+    success = _generate_document(doc)
+    if success:
+        messages.success(request, f'Document {doc.document_number} regenerated successfully.')
+    else:
+        messages.error(request, f'Failed to regenerate document {doc.document_number}.')
+
     return redirect('document_status', doc.id)
 
 
@@ -494,6 +606,61 @@ def bulk_action(request):
         response['Content-Disposition'] = 'attachment; filename="documents_docx.zip"'
         return response
 
+    # === NEW: Merge PDFs into a single file ===
+    elif action == 'merge_pdfs':
+        from PyPDF2 import PdfMerger
+        merger = PdfMerger()
+        merged_filenames = []   # will store full document numbers
+        number_map = {}         # maps numeric suffix -> full doc number
+
+        for doc_id in doc_ids:
+            doc = get_object_or_404(Document, id=doc_id)
+            if doc.status == 'generated' and doc.generated_pdf:
+                pdf_bytes = doc.generated_pdf.read()
+                merger.append(io.BytesIO(pdf_bytes))
+                merged_filenames.append(doc.document_number)
+                # Extract numeric suffix (last part after '/')
+                try:
+                    num_part = doc.document_number.split('/')[-1]
+                    if num_part.isdigit():
+                        number_map[int(num_part)] = doc.document_number
+                except:
+                    pass
+
+        if not merged_filenames:
+            messages.error(request, 'No valid generated PDFs found to merge.')
+            return redirect('document_list')
+
+        # ---- Generate a meaningful filename ----
+        if number_map:
+            sorted_numbers = sorted(number_map.keys())
+            base_prefix = merged_filenames[0].split('/')[0] + '_' + merged_filenames[0].split('/')[1]  # e.g., "AFPL_2026-27"
+            # if only one
+            if len(sorted_numbers) == 1:
+                filename = f"{base_prefix}_{sorted_numbers[0]}.pdf"
+            else:
+                # Check if numbers are consecutive
+                consecutive = all(sorted_numbers[i+1] - sorted_numbers[i] == 1 for i in range(len(sorted_numbers)-1))
+                if consecutive:
+                    filename = f"{base_prefix}_{sorted_numbers[0]}_to_{sorted_numbers[-1]}.pdf"
+                else:
+                    # join all numbers with underscores
+                    num_str = '_'.join(str(n) for n in sorted_numbers)
+                    filename = f"{base_prefix}_{num_str}.pdf"
+        else:
+            # fallback
+            filename = "merged_documents.pdf"
+
+        # Replace slashes with underscores to avoid filesystem issues
+        filename = filename.replace('/', '_')
+
+        # ---- Return the merged PDF ----
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        merger.write(response)
+        merger.close()
+        return response
+
     elif action == 'regenerate':
         count = 0
         for doc_id in doc_ids:
@@ -513,33 +680,88 @@ def bulk_action(request):
     else:
         messages.error(request, 'Invalid action.')
         return redirect('document_list')
-    
+
 
 @csrf_exempt
 def process_queue(request):
-    
-    token = request.GET.get('token') or request.POST.get('token')
-    expected = getattr(settings, 'QUEUE_PROCESS_TOKEN', 'change-me').strip()
-    if token != expected:
-        return JsonResponse({'error': 'Invalid token'}, status=403)
-   
-    MAX_PER_RUN = 5
+    """
+    Process pending documents synchronously – no background worker required.
+    Called by external cron job (e.g., cron-job.org).
+    """
+    MAX_PER_RUN = 25
     processed = 0
     errors = 0
-    pending_docs = Document.objects.filter(status='draft').order_by('created_at')[:MAX_PER_RUN]
 
-    from .tasks import generate_document_pdf_docx
+    pending_docs = Document.objects.filter(
+        Q(status='draft') | Q(status='processing')
+    ).order_by('created_at')[:MAX_PER_RUN]
 
     for doc in pending_docs:
+        if doc.status == 'processing':
+            doc.status = 'draft'
+            doc.save()
+
         try:
-            generate_document_pdf_docx(doc.id)
-            processed += 1
+            success = _generate_document(doc)
+            if success:
+                processed += 1
+            else:
+                errors += 1
         except Exception as e:
+            logger.error(f"Error processing doc {doc.id}: {e}")
+            doc.status = 'failed'
+            doc.save()
             errors += 1
 
+    remaining = Document.objects.filter(status='draft').count()
     return JsonResponse({
         'status': 'ok',
         'processed': processed,
         'errors': errors,
-        'remaining': Document.objects.filter(status='draft').count()
+        'remaining': remaining
     })
+
+
+@login_required
+def document_edit(request, doc_id):
+    doc = get_object_or_404(Document, id=doc_id)
+    template = doc.template
+
+    initial = {}
+    for val in doc.values.all():
+        initial[val.field.field_name] = val.value
+
+    if request.method == 'POST':
+        form_class = build_dynamic_form(template.id, data=request.POST)
+        form = form_class(request.POST)
+        if form.is_valid():
+            doc.values.all().delete()
+            for field_name, value in form.cleaned_data.items():
+                try:
+                    tfield = TemplateField.objects.get(template=template, field_name=field_name)
+                except TemplateField.DoesNotExist:
+                    continue
+                if isinstance(value, (datetime.date, datetime.datetime)):
+                    str_value = value.isoformat()
+                else:
+                    str_value = str(value)
+                DocumentValue.objects.create(document=doc, field=tfield, value=str_value)
+
+            doc.status = 'draft'
+            doc.generated_pdf.delete(save=False)
+            doc.generated_docx.delete(save=False)
+            doc.qr_code.delete(save=False)
+            doc.barcode.delete(save=False)
+            doc.save()
+
+            generate_document_pdf_docx(doc.id)
+            messages.success(request, 'Document updated and regeneration started.')
+            return redirect('document_status', doc.id)
+        else:
+            return render(request, 'documents/edit.html', {'form': form, 'document': doc})
+    else:
+        form_class = build_dynamic_form(template.id, initial=initial)
+        form = form_class()
+        return render(request, 'documents/edit.html', {'form': form, 'document': doc})
+
+

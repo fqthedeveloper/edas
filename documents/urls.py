@@ -17,6 +17,7 @@ urlpatterns = [
     path('regenerate/<int:doc_id>/', views.regenerate_document, name='regenerate_document'),
     path('bulk-action/', views.bulk_action, name='bulk_action'),
     path('verify/', views.verify_form, name='verify_form'),  # form to enter number
-    path('verify/<path:document_number>/', views.verify_document, name='verify'), 
+    path('verify/<path:document_number>/', views.verify_document, name='verify'),
     path('process-queue/', views.process_queue, name='process_queue'),
+    path('<int:doc_id>/edit/', views.document_edit, name='document_edit'),
 ]
