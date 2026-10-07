@@ -59,8 +59,15 @@ def _generate_document(doc):
     try:
         qr_data = f"{context['base_url']}/documents/verify/{doc.document_number}"
         qr_bytes = generate_qr_code(qr_data)  # returns raw PNG bytes
-        # Save QR to model (optional)
-        doc.qr_code.save(f"{doc.document_number}_qr.png", ContentFile(qr_bytes), save=False)
+
+        # Clean old QR file if exists to prevent duplicate file sprawl
+        if doc.qr_code:
+            try:
+                doc.qr_code.delete(save=False)
+            except Exception:
+                pass
+        doc.qr_code.save(f"{doc.document_number.replace('/', '_')}_qr.png", ContentFile(qr_bytes), save=False)
+
         # For PDF: embed as base64
         if doc.qr_code:
             qr_b64 = image_to_base64(doc.qr_code)
@@ -76,7 +83,15 @@ def _generate_document(doc):
     try:
         html_string = DjangoTemplate(doc.template.html_layout).render(Context(context))
         pdf_bytes = generate_pdf_from_html(html_string, base_url=context.get('base_url'))
-        doc.generated_pdf.save(f"{doc.document_number}.pdf", ContentFile(pdf_bytes), save=False)
+
+        # Clean old PDF file if exists to keep disk storage lean and avoid _hash duplicate files
+        if doc.generated_pdf:
+            try:
+                doc.generated_pdf.delete(save=False)
+            except Exception:
+                pass
+        clean_filename = f"{doc.document_number.replace('/', '_')}.pdf"
+        doc.generated_pdf.save(clean_filename, ContentFile(pdf_bytes), save=False)
     except Exception as e:
         logger.error(f"PDF generation failed: {e}")
         return False
@@ -93,7 +108,13 @@ def _generate_document(doc):
             docx_template.save(docx_output)
             docx_bytes = docx_output.getvalue()
 
-            doc.generated_docx.save(f"{doc.document_number}.docx", ContentFile(docx_bytes), save=False)
+            if doc.generated_docx:
+                try:
+                    doc.generated_docx.delete(save=False)
+                except Exception:
+                    pass
+            clean_docx_name = f"{doc.document_number.replace('/', '_')}.docx"
+            doc.generated_docx.save(clean_docx_name, ContentFile(docx_bytes), save=False)
         except Exception as e:
             logger.warning(f"DOCX generation failed for {doc.document_number} (proceeding with PDF): {e}")
 

@@ -169,7 +169,7 @@
             font-size: 0.9rem;
         }
 
-        /* Responsive Breakpoints */
+        /* Responsive Breakpoints & Mobile Optimization */
         @media (max-width: 991.98px) {
             .navbar-collapse {
                 background: #0f172a;
@@ -181,17 +181,29 @@
 
         @media (max-width: 768px) {
             .page-shell {
-                padding: 1rem 0 2rem;
+                padding: 0.75rem 0 2rem;
             }
             .card-body {
-                padding: 1.25rem;
+                padding: 1rem;
             }
-            .btn {
+            /* Clean action bar grids on mobile */
+            .mobile-btn-grid {
+                display: grid !important;
+                grid-template-columns: 1fr 1fr;
+                gap: 0.5rem;
                 width: 100%;
-                margin-bottom: 0.25rem;
             }
-            .d-flex.flex-wrap.gap-2 > .btn {
-                width: 100%;
+            .mobile-btn-full {
+                width: 100% !important;
+            }
+            .table th, .table td {
+                padding: 0.6rem 0.65rem;
+                font-size: 0.85rem;
+            }
+            .pagination {
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 2px;
             }
         }
     </style>

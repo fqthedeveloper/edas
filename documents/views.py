@@ -772,7 +772,8 @@ def process_queue_batch(request):
     Processes one chunk/batch of pending draft documents on-demand (e.g. 15-25 items)
     with safe exception handling so the browser can iterate smoothly without timing out.
     """
-    batch_size = int(request.POST.get('batch_size', 20))
+    # Use conservative batch size (default: 10) to stay well within PythonAnywhere 25s timeout
+    batch_size = min(int(request.POST.get('batch_size', 10)), 15)
     processed = 0
     errors = 0
 

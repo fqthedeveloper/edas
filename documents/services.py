@@ -15,30 +15,43 @@ from django.conf import settings  # optional, only if using Django
 def image_to_base64(image_field):
     """
     Convert a Django ImageField to base64 data URI.
+    Supports local disk paths, storage read, and relative MEDIA_ROOT fallbacks.
     Returns None if image doesn't exist or can't be read.
     """
     if not image_field or not image_field.name:
         return None
 
     try:
-        # Try to get the file path
+        image_data = None
+        ext = image_field.name.split('.')[-1].lower()
+
+        # Method 1: direct filesystem path
         if hasattr(image_field, 'path') and os.path.exists(image_field.path):
-            path = image_field.path
-        else:
+            with open(image_field.path, 'rb') as f:
+                image_data = f.read()
+        # Method 2: storage open
+        elif hasattr(image_field, 'storage') and image_field.storage.exists(image_field.name):
+            with image_field.storage.open(image_field.name, 'rb') as f:
+                image_data = f.read()
+        # Method 3: relative to MEDIA_ROOT
+        elif hasattr(settings, 'MEDIA_ROOT'):
+            media_path = os.path.join(settings.MEDIA_ROOT, image_field.name)
+            if os.path.exists(media_path):
+                with open(media_path, 'rb') as f:
+                    image_data = f.read()
+
+        if not image_data:
             return None
 
-        with open(path, 'rb') as f:
-            image_data = f.read()
-            ext = path.split('.')[-1].lower()
-            mime_type = {
-                'jpg': 'image/jpeg',
-                'jpeg': 'image/jpeg',
-                'png': 'image/png',
-                'gif': 'image/gif',
-                'svg': 'image/svg+xml'
-            }.get(ext, 'image/png')
-            b64 = base64.b64encode(image_data).decode('utf-8')
-            return f"data:{mime_type};base64,{b64}"
+        mime_type = {
+            'jpg': 'image/jpeg',
+            'jpeg': 'image/jpeg',
+            'png': 'image/png',
+            'gif': 'image/gif',
+            'svg': 'image/svg+xml'
+        }.get(ext, 'image/png')
+        b64 = base64.b64encode(image_data).decode('utf-8')
+        return f"data:{mime_type};base64,{b64}"
 
     except Exception as e:
         import logging
