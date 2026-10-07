@@ -1,19 +1,117 @@
 {% extends "base.html" %}
 {% block title %}{% if form.instance.pk %}Edit{% else %}Add{% endif %} Field{% endblock %}
+
 {% block content %}
-<div class="card">
-    <div class="card-header">
-        <h3>{% if form.instance.pk %}Edit{% else %}Add{% endif %} Field for "{{ template.name }}"</h3>
-    </div>
-    <div class="card-body">
-        <form method="post">
-            {% csrf_token %}
-            {{ form.as_p }}
-            <div class="d-flex flex-wrap gap-2 mt-3">
-                <button type="submit" class="btn btn-success">Save</button>
-                <a href="{% url 'template_field_list' template.pk %}" class="btn btn-secondary">Cancel</a>
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+            <div>
+                <h3 class="fw-bold mb-0">{% if form.instance.pk %}Edit{% else %}Add{% endif %} Dynamic Field</h3>
+                <small class="text-muted">Template: <strong>{{ template.name|default:form.instance.template.name }}</strong></small>
             </div>
-        </form>
+            <a href="{% url 'template_field_list' template.pk|default:form.instance.template.pk %}" class="btn btn-outline-secondary btn-sm">
+                &larr; Back to Fields
+            </a>
+        </div>
+
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-body p-4">
+                <form method="post">
+                    {% csrf_token %}
+
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger mb-4">
+                            {{ form.non_field_errors }}
+                        </div>
+                    {% endif %}
+
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Field Name (Variable Key) <span class="text-danger">*</span></label>
+                            {{ form.field_name }}
+                            <small class="text-muted font-monospace">e.g. client_name, air_velocity</small>
+                            {% if form.field_name.errors %}<div class="text-danger small mt-1">{{ form.field_name.errors.0 }}</div>{% endif %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Label (Display Name) <span class="text-danger">*</span></label>
+                            {{ form.label }}
+                            {% if form.label.errors %}<div class="text-danger small mt-1">{{ form.label.errors.0 }}</div>{% endif %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Field Type</label>
+                            {{ form.field_type }}
+                            {% if form.field_type.errors %}<div class="text-danger small mt-1">{{ form.field_type.errors.0 }}</div>{% endif %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Group / Section</label>
+                            {{ form.group }}
+                            <small class="text-muted">e.g. Product Details, Test Data</small>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Display Order</label>
+                            {{ form.order }}
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Placeholder Text</label>
+                            {{ form.placeholder }}
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Default Value</label>
+                            {{ form.default_value }}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Linked Dropdown List</label>
+                            {{ form.dropdown }}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Column Width (1-12)</label>
+                            {{ form.column_width }}
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Formula Expression (Optional)</label>
+                            {{ form.formula_expression }}
+                            <small class="text-muted">e.g. final_pressure_drop - initial_pressure_drop</small>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Validation Rules (JSON)</label>
+                            {{ form.validation_rules }}
+                        </div>
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-4 py-3 border-top border-bottom mb-4">
+                        <div class="form-check">
+                            {{ form.is_visible }}
+                            <label class="form-check-label" for="{{ form.is_visible.id_for_label }}">Visible</label>
+                        </div>
+                        <div class="form-check">
+                            {{ form.is_editable }}
+                            <label class="form-check-label" for="{{ form.is_editable.id_for_label }}">Editable</label>
+                        </div>
+                        <div class="form-check">
+                            {{ form.is_printable }}
+                            <label class="form-check-label" for="{{ form.is_printable.id_for_label }}">Printable</label>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <a href="{% url 'template_field_list' template.pk|default:form.instance.template.pk %}" class="btn btn-light px-4">Cancel</a>
+                        <button type="submit" class="btn btn-success px-5 fw-bold">
+                            <i class="bi bi-check2-circle"></i> Save Field
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}

@@ -81,28 +81,21 @@ def _generate_document(doc):
         logger.error(f"PDF generation failed: {e}")
         return False
 
-    # ---- Generate DOCX with embedded QR ----
-    try:
-        # Load the Word template
-        docx_template = DocxTemplate(doc.template.docx_template.path)
+    # ---- Generate DOCX with embedded QR (optional if docx_template provided) ----
+    if doc.template.docx_template and os.path.exists(getattr(doc.template.docx_template, 'path', '')):
+        try:
+            docx_template = DocxTemplate(doc.template.docx_template.path)
+            qr_image = InlineImage(docx_template, qr_bytes_io, width=Mm(25), height=Mm(25))
+            context['qr_code'] = qr_image
+            docx_template.render(context)
 
-        # Convert QR bytes to InlineImage (adjust width/height as needed)
-        qr_image = InlineImage(docx_template, qr_bytes_io, width=Mm(25), height=Mm(25))
-        context['qr_code'] = qr_image   # Must match the placeholder in your .docx template
+            docx_output = io.BytesIO()
+            docx_template.save(docx_output)
+            docx_bytes = docx_output.getvalue()
 
-        # Render template with all context (including qr_code)
-        docx_template.render(context)
-
-        # Save to bytes
-        docx_output = io.BytesIO()
-        docx_template.save(docx_output)
-        docx_bytes = docx_output.getvalue()
-
-        # Save to model
-        doc.generated_docx.save(f"{doc.document_number}.docx", ContentFile(docx_bytes), save=False)
-    except Exception as e:
-        logger.error(f"DOCX generation failed: {e}")
-        return False
+            doc.generated_docx.save(f"{doc.document_number}.docx", ContentFile(docx_bytes), save=False)
+        except Exception as e:
+            logger.warning(f"DOCX generation failed for {doc.document_number} (proceeding with PDF): {e}")
 
     # Mark document as generated
     doc.status = 'generated'

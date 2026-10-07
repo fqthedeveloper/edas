@@ -145,56 +145,44 @@ AUTH_USER_MODEL = 'accounts.User'
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'login'
-# HTTPS Settings
-SECURE_SSL_REDIRECT = True                    # Redirect HTTP → HTTPS
-SESSION_COOKIE_SECURE = True                  # Only send session cookies over HTTPS
-CSRF_COOKIE_SECURE = True                     # Only send CSRF cookies over HTTPS
+# PythonAnywhere / Reverse Proxy SSL Header
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
-# HSTS (HTTP Strict Transport Security)
-SECURE_HSTS_SECONDS = 31536000                # 1 year (force HTTPS for 1 year)
-SECURE_HSTS_INCLUDE_SUBDOMAINS = True         # Apply to all subdomains
-SECURE_HSTS_PRELOAD = True                    # Allow preloading (optional)
+# HTTPS Settings (Active in production when DEBUG=False)
+if not DEBUG:
+    SECURE_SSL_REDIRECT = env.bool('SECURE_SSL_REDIRECT', default=True)
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 31536000                # 1 year (force HTTPS for 1 year)
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True         # Apply to all subdomains
+    SECURE_HSTS_PRELOAD = True                    # Allow preloading
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_BROWSER_XSS_FILTER = True
+else:
+    SECURE_SSL_REDIRECT = False
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
 
-# Prevent browser MIME type sniffing
-SECURE_CONTENT_TYPE_NOSNIFF = True
+# CSRF trusted origins (Django 4.0+ requires scheme http:// or https://)
+CSRF_TRUSTED_ORIGINS = env.list('CSRF_TRUSTED_ORIGINS', default=[
+    'https://*.pythonanywhere.com',
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+])
 
-# Enable XSS filter
-SECURE_BROWSER_XSS_FILTER = True
-
-
-# CSRF trusted origins (for POST requests)
-CSRF_TRUSTED_ORIGINS = [
-    'https://airfil.pythonanywhere.com',
-    # Add https://your-custom-domain.com
-]
 # CORS (if using API later)
-CORS_ALLOW_ALL_ORIGINS = False
-CORS_ALLOWED_ORIGINS = ['https://airfil.pythonanywhere.com/']
+CORS_ALLOW_ALL_ORIGINS = env.bool('CORS_ALLOW_ALL_ORIGINS', default=False)
+CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', default=[
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+])
 
-BASE_URL = env('BASE_URL', default='https://airfil.pythonanywhere.com')
+BASE_URL = env('BASE_URL', default='http://localhost:8000')
 
 # Default primary key
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 PDF_ENGINE = env('PDF_ENGINE', default='weasyprint')
-
-# Django-Q configuration
-Q_CLUSTER = {
-    'name': 'EDAS',
-    'workers': 1,                     # Number of worker processes
-    'recycle': 500,                   # Restart workers after 500 tasks
-    'timeout': 300,                   # Task timeout in seconds (5 minutes)
-    'retry': 360,                     # Retry after 6 minutes
-    'save_limit': 250,                # Number of successful tasks to keep
-    'queue_limit': 500,               # Max number of queued tasks
-    'cpu_affinity': 1,                # Bind to one CPU core
-    'label': 'Django Q Cluster',
-    'redis': None,                    # Use database broker (no Redis)
-    'db': 'default',                  # Use the default database
-    'sync': False,                    # Run tasks asynchronously
-    'catch_up': False,                # Don't catch up on missed tasks
-    'orm': 'default',                 # Use default ORM
-}
 
 STORAGE = {
     "static": {

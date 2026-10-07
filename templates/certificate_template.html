@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Test Certificate</title>
+
+<style>
+@page {
+    size: A4 portrait;
+    margin: 10mm 14mm 8mm 14mm;
+}
+
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+}
+
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 10pt;
+    color: #000;
+    line-height: 1.35;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+
+/* ================= WATERMARK ================= */
+.watermark {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 65%;
+    text-align: center;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.25;
+}
+
+.watermark img {
+    max-width: 100%;
+    height: auto;
+}
+
+/* ================= FULL PAGE CONTAINER ================= */
+.page {
+    position: relative;
+    z-index: 2;
+    box-sizing: border-box;
+}
+
+/* ================= HEADER ================= */
+.header-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 4px;
+}
+
+.header-table td {
+    border: none;
+    padding: 0;
+    vertical-align: middle;
+}
+
+.logo-cell {
+    width: 35%;
+    text-align: left;
+}
+
+.logo-cell img {
+    height: 52px;
+    width: auto;
+}
+
+.brand-cell {
+    width: 65%;
+    text-align: right;
+    font-size: 22pt;
+    font-weight: bold;
+    color: #0c7fb8;
+    letter-spacing: 1.5px;
+}
+
+.cert-title {
+    text-align: center;
+    font-size: 17pt;
+    font-weight: bold;
+    color: #0c7fb8;
+    margin: 6px 0 10px;
+    letter-spacing: 1px;
+    border-bottom: 2px solid #0c7fb8;
+    padding-bottom: 4px;
+}
+
+/* ================= DOCUMENT INFO ================= */
+.info-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 12px;
+}
+
+.info-table td {
+    border: none;
+    padding: 3px 0;
+    font-size: 10pt;
+    vertical-align: top;
+}
+
+.left {
+    text-align: left;
+}
+
+.right {
+    text-align: right;
+}
+
+.label {
+    font-weight: bold;
+    color: #222;
+}
+
+/* ================= MAIN DATA TABLE ================= */
+.main-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9.5pt;
+    table-layout: fixed;
+}
+
+.main-table th,
+.main-table td {
+    border: 1px solid #000;
+    padding: 7px 6px;
+    text-align: center;
+    vertical-align: middle;
+    box-sizing: border-box;
+    word-wrap: break-word;
+}
+
+.main-table th {
+    font-weight: bold;
+    font-size: 9pt;
+    letter-spacing: 0.3px;
+}
+
+.section-title {
+    font-size: 10.5pt;
+    font-weight: bold;
+    text-transform: uppercase;
+    color: #0c7fb8;
+    text-align: center !important;
+    padding: 6px !important;
+    background: #f3fafd;
+    letter-spacing: 0.5px;
+}
+
+.manufacturer {
+    font-weight: bold;
+    text-align: left !important;
+    font-size: 10pt;
+    background: #fafafa;
+    padding: 6px 10px !important;
+}
+
+.filter-type {
+    font-weight: bold;
+    text-align: left !important;
+    font-size: 10pt;
+    background: #fafafa;
+    padding: 6px 10px !important;
+}
+
+/* Explicit widths for product details row */
+.col-media {
+    width: 38%;
+}
+
+.col-capacity {
+    width: 16%;
+}
+
+.col-dim {
+    width: 28%;
+    white-space: nowrap !important;
+}
+
+.col-moc {
+    width: 18%;
+}
+
+/* Explicit widths for airflow & temp row */
+.col-rate {
+    width: 25%;
+}
+
+.col-init-drop {
+    width: 25%;
+}
+
+.col-final-drop {
+    width: 25%;
+}
+
+.col-temp {
+    width: 25%;
+}
+
+/* ================= SIGNATURE & VALIDATION BLOCKS ================= */
+.closing-container {
+    margin-top: 14px;
+    width: 100%;
+    border: 1px solid #000;
+    box-sizing: border-box;
+    padding: 10px 12px;
+    background: #fff;
+}
+
+.closing-table {
+    width: 100%;
+    border: none;
+    border-collapse: collapse;
+    margin: 0;
+}
+
+.closing-table td {
+    border: none;
+    padding: 0;
+    vertical-align: bottom;
+}
+
+.contact-line {
+    margin-top: 10px;
+    font-size: 9.5pt;
+    text-align: left;
+    border-top: 1px dashed #bbb;
+    padding-top: 8px;
+}
+
+/* ================= STATIC PRINT FOOTER ================= */
+.footer {
+    margin-top: 14px;
+    padding-top: 8px;
+    border-top: 2px solid #0c7fb8;
+    text-align: center;
+    font-size: 9.5pt;
+    color: #000;
+}
+
+.footer a {
+    color: #000;
+    text-decoration: none;
+    font-weight: bold;
+}
+</style>
+</head>
+
+<body>
+
+{% if has_watermark and watermark_b64 %}
+<div class="watermark">
+    <img src="{{ watermark_b64 }}">
+</div>
+{% endif %}
+
+<div class="page">
+
+    <!-- HEADER BLOCK -->
+    <table class="header-table">
+        <tr>
+            <td class="logo-cell">
+                {% if logo_b64 %}
+                    <img src="{{ logo_b64 }}">
+                {% elif company.logo %}
+                    <img src="{{ base_url }}{{ company.logo.url }}">
+                {% endif %}
+            </td>
+            <td class="brand-cell">
+                AIR FILTER
+            </td>
+        </tr>
+    </table>
+
+    <div class="cert-title">
+        TEST CERTIFICATE
+    </div>
+
+    <!-- METADATA BLOCK -->
+    <table class="info-table">
+        <tr>
+            <td class="left"><span class="label">TC NO:</span> {{ tc_number }}</td>
+            <td class="right"><span class="label">DATE:</span> {{ date }}</td>
+        </tr>
+        <tr>
+            <td colspan="2"><span class="label">CLIENT NAME:</span> {{ client_name }}</td>
+        </tr>
+        <tr>
+            <td><span class="label">CLIENT PO NO:</span> {{ client_po_no|default:"-" }}</td>
+            <td class="right"><span class="label">PO DATE:</span> {{ po_date|default:"-" }}</td>
+        </tr>
+        <tr>
+            <td><span class="label">FILTER SERIAL NUMBER:</span> {{ filter_serial_number|default:"-" }}</td>
+            <td class="right"><span class="label">TESTING DATE:</span> {{ testing_date }}</td>
+        </tr>
+        <tr>
+            <td colspan="2"><span class="label">EQUIPMENT USED FOR TESTING:</span> {{ equipment_used|default:"-" }}</td>
+        </tr>
+    </table>
+
+    <!-- MAIN DATA TABLE -->
+    <table class="main-table">
+        <tr>
+            <td colspan="4" class="manufacturer">
+                MANUFACTURER : <span style="font-weight:normal;">{{ manufacturer|default:"AIRFIL FILTECH PVT. LTD." }}</span>
+            </td>
+        </tr>
+        <tr>
+            <td colspan="4" class="filter-type">
+                TYPE OF FILTER : <span style="font-weight:normal;">{{ filter_type|default:"-" }}</span>
+            </td>
+        </tr>
+        <tr>
+            <td colspan="4" class="section-title">PRODUCT DETAILS</td>
+        </tr>
+        <tr>
+            <th class="col-media">FILTER MEDIA</th>
+            <th class="col-capacity">FILTER CAPACITY</th>
+            <th class="col-dim">FILTER DIMENSION</th>
+            <th class="col-moc">MOC</th>
+        </tr>
+        <tr>
+            <td class="col-media">{{ filter_media|default:"-" }}</td>
+            <td class="col-capacity">{{ filter_capacity|default:"-" }}</td>
+            <td class="col-dim" style="white-space:nowrap;">{{ filter_dimension|default:"-" }}</td>
+            <td class="col-moc">{{ moc|default:"-" }}</td>
+        </tr>
+        <tr>
+            <th class="col-rate">AIR FLOW RATE</th>
+            <th class="col-init-drop">INITIAL PRESSURE DROP</th>
+            <th class="col-final-drop">FINAL PRESSURE DROP</th>
+            <th class="col-temp">TEMPERATURE</th>
+        </tr>
+        <tr>
+            <td class="col-rate">{{ air_flow_rate|default:"-" }}</td>
+            <td class="col-init-drop">{{ initial_pressure_drop|default:"-" }}</td>
+            <td class="col-final-drop">{{ final_pressure_drop|default:"-" }}</td>
+            <td class="col-temp">{{ temperature|default:"-" }}</td>
+        </tr>
+        <tr>
+            <td colspan="4" class="section-title">TEST DATA</td>
+        </tr>
+        <tr>
+            <th width="25%">TEST AIRFLOW</th>
+            <th colspan="2" width="50%">AIR VELOCITY</th>
+            <th width="25%">AIR TEMPERATURE</th>
+        </tr>
+        <tr>
+            <td>{{ test_airflow|default:"-" }}</td>
+            <td colspan="2">{{ air_velocity|default:"-" }}</td>
+            <td>{{ air_temperature|default:"-" }}</td>
+        </tr>
+        <tr>
+            <td colspan="4" class="section-title">TEST RESULT</td>
+        </tr>
+        <tr>
+            <th width="25%">INITIAL PRESSURE DROP (Pa)</th>
+            <th colspan="2" width="50%">EFFICIENCY</th>
+            <th width="25%">FILTER CLASS</th>
+        </tr>
+        <tr>
+            <td>{{ test_initial_pressure_drop|default:"-" }}</td>
+            <td colspan="2">{{ efficiency|default:"-" }}</td>
+            <td>{{ filter_class|default:"-" }}</td>
+        </tr>
+        <tr>
+            <td colspan="4" style="text-align:left; padding:8px 10px;">
+                <strong>TEST TYPE :</strong> {{ test_type|default:"-" }}
+            </td>
+        </tr>
+    </table>
+
+    <!-- CLOSING BLOCKS SIGNATURE & VERIFICATION -->
+    <div class="closing-container">
+        <table class="closing-table">
+            <tr>
+                <!-- QR CODE -->
+                <td style="width:30%; text-align:left;">
+                    {% if qr_b64 %}
+                        <img src="{{ qr_b64 }}" style="height:68px; width:auto; display:block;">
+                    {% elif document.qr_code %}
+                        <img src="{{ base_url }}{{ document.qr_code.url }}" style="height:68px; width:auto; display:block;">
+                    {% endif %}
+                </td>
+
+                <!-- EMPTY SPACER -->
+                <td style="width:35%;"></td>
+
+                <!-- VALIDATION SIGNATURE -->
+                <td style="width:35%; text-align:center;">
+                    <div style="font-weight:bold; margin-bottom:5px; font-size:10pt; letter-spacing:0.5px;">
+                        INSPECTED BY
+                    </div>
+                    
+                    {% if signature_b64 %}
+                        <img src="{{ signature_b64 }}" style="height:52px; width:auto; display:inline-block; mix-blend-mode: multiply;">
+                    {% elif company.signature %}
+                        <img src="{{ base_url }}{{ company.signature.url }}" style="height:52px; width:auto; display:inline-block; mix-blend-mode: multiply;">
+                    {% else %}
+                        <div style="height:52px;"></div>
+                    {% endif %}
+
+                    <div style="font-weight:bold; margin-top:3px; font-size:10pt;">
+                        Authorised Signatory
+                    </div>
+                </td>
+            </tr>
+        </table>
+
+        <div class="contact-line">
+            For Queries Related To TC Please Contact : <strong>quality@airfil.in</strong>
+        </div>
+    </div>
+
+    <!-- DOCUMENT STRUCTURAL FOOTER -->
+    <div class="footer">
+        <div style="font-size:11pt; font-weight:bold; margin-bottom:2px; color:#0c7fb8;">
+            AIRFIL FILTECH PVT. LTD.
+        </div>
+        <div style="font-size:9.5pt; color:#333;">
+            Email : <a href="mailto:sales@airfil.in">sales@airfil.in</a>
+            &nbsp;&nbsp;&nbsp;|&nbsp;&nbsp;&nbsp;
+            Website : <a href="https://www.airfil.in" target="_blank">www.airfil.in</a>
+        </div>
+    </div>
+
+</div>
+
+</body>
+</html>

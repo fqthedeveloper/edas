@@ -4,56 +4,76 @@ from templatesapp.models import Template
 from dropdowns.models import DropdownList
 
 def build_dynamic_form(template_id, data=None, initial=None):
-    fields = TemplateField.objects.filter(template_id=template_id, is_visible=True).order_by('order')
+    template_fields = list(TemplateField.objects.filter(template_id=template_id, is_visible=True).order_by('order'))
+
     class DynamicForm(forms.Form):
-        pass
-    for field in fields:
-        validation_rules = field.validation_rules or {}
-        required = validation_rules.get('required', False)
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            for field in template_fields:
+                validation_rules = field.validation_rules or {}
+                required = validation_rules.get('required', False)
+                form_field = None
 
-        if field.field_type == 'text':
-            kwargs = {'required': required, 'label': field.label}
-            if field.placeholder:
-                kwargs['widget'] = forms.TextInput(attrs={'placeholder': field.placeholder})
-            DynamicForm.base_fields[field.field_name] = forms.CharField(**kwargs)
-        elif field.field_type == 'number':
-            kwargs = {'required': required, 'label': field.label}
-            DynamicForm.base_fields[field.field_name] = forms.FloatField(**kwargs)
-        elif field.field_type == 'date':
-            kwargs = {'required': required, 'label': field.label}
-            DynamicForm.base_fields[field.field_name] = forms.DateField(
-                widget=forms.DateInput(attrs={'type': 'date'}), **kwargs
-            )
-        elif field.field_type == 'dropdown':
-            if field.dropdown:
-                choices = [(item, item) for item in field.dropdown.items]
-            else:
-                choices = []
-            kwargs = {'required': required, 'label': field.label, 'choices': choices}
-            DynamicForm.base_fields[field.field_name] = forms.ChoiceField(
-                widget=forms.Select(attrs={'class': 'form-select'}), **kwargs
-            )
-        elif field.field_type == 'checkbox':
-            kwargs = {'required': False, 'label': field.label}
-            DynamicForm.base_fields[field.field_name] = forms.BooleanField(**kwargs)
-        elif field.field_type == 'textarea':
-            kwargs = {'required': required, 'label': field.label}
-            DynamicForm.base_fields[field.field_name] = forms.CharField(
-                widget=forms.Textarea(attrs={'rows': 3}), **kwargs
-            )
-        elif field.field_type == 'formula':
-            kwargs = {'required': False, 'label': field.label}
-            DynamicForm.base_fields[field.field_name] = forms.CharField(
-                widget=forms.TextInput(attrs={'readonly': True}), **kwargs
-            )
-        else:
-            kwargs = {'required': required, 'label': field.label}
-            DynamicForm.base_fields[field.field_name] = forms.CharField(**kwargs)
+                if field.field_type == 'text':
+                    w_kwargs = {'class': 'form-control'}
+                    if field.placeholder:
+                        w_kwargs['placeholder'] = field.placeholder
+                    form_field = forms.CharField(
+                        required=required,
+                        label=field.label,
+                        widget=forms.TextInput(attrs=w_kwargs)
+                    )
+                elif field.field_type == 'number':
+                    form_field = forms.FloatField(
+                        required=required,
+                        label=field.label,
+                        widget=forms.NumberInput(attrs={'class': 'form-control', 'step': 'any'})
+                    )
+                elif field.field_type == 'date':
+                    form_field = forms.DateField(
+                        required=required,
+                        label=field.label,
+                        widget=forms.DateInput(attrs={'type': 'date', 'class': 'form-control'})
+                    )
+                elif field.field_type == 'dropdown':
+                    choices = [(item, item) for item in field.dropdown.items] if field.dropdown else []
+                    form_field = forms.ChoiceField(
+                        required=required,
+                        label=field.label,
+                        choices=choices,
+                        widget=forms.Select(attrs={'class': 'form-select'})
+                    )
+                elif field.field_type == 'checkbox':
+                    form_field = forms.BooleanField(
+                        required=False,
+                        label=field.label,
+                        widget=forms.CheckboxInput(attrs={'class': 'form-check-input'})
+                    )
+                elif field.field_type == 'textarea':
+                    form_field = forms.CharField(
+                        required=required,
+                        label=field.label,
+                        widget=forms.Textarea(attrs={'rows': 3, 'class': 'form-control'})
+                    )
+                elif field.field_type == 'formula':
+                    form_field = forms.CharField(
+                        required=False,
+                        label=field.label,
+                        widget=forms.TextInput(attrs={'readonly': True, 'class': 'form-control bg-light font-monospace'})
+                    )
+                else:
+                    form_field = forms.CharField(
+                        required=required,
+                        label=field.label,
+                        widget=forms.TextInput(attrs={'class': 'form-control'})
+                    )
 
-        if initial and field.field_name in initial:
-            DynamicForm.base_fields[field.field_name].initial = initial[field.field_name]
-        elif field.default_value:
-            DynamicForm.base_fields[field.field_name].initial = field.default_value
+                if initial and field.field_name in initial:
+                    form_field.initial = initial[field.field_name]
+                elif field.default_value:
+                    form_field.initial = field.default_value
+
+                self.fields[field.field_name] = form_field
 
     return DynamicForm
 

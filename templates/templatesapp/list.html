@@ -3,7 +3,10 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h2>Document Templates</h2>
-    <a href="{% url 'template_add' %}" class="btn btn-primary">Add Template</a>
+    <div>
+        <a href="{% url 'ai_template_import' %}" class="btn btn-outline-primary me-2">✨ Smart AI Import (PDF/Word)</a>
+        <a href="{% url 'template_add' %}" class="btn btn-primary">Add Template</a>
+    </div>
 </div>
 <table class="table table-striped">
     <thead>

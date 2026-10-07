@@ -19,6 +19,7 @@ from django.template import Template as DjangoTemplate, Context
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 
+from companies.models import Company
 from clients.models import Client
 from products.models import Product
 from templatesapp.models import Template, TemplateField
@@ -342,12 +343,10 @@ def upload_excel(request):
             success_count = 0
             errors = []
 
-            for row_idx, row in enumerate(
-                sheet.iter_rows(min_row=2, values_only=True),
-                start=2,
-            ):
-                if not any(row):
-                    continue
+            all_rows = [r for r in sheet.iter_rows(min_row=2, values_only=True) if any(r)]
+            total_valid_rows = len(all_rows)
+
+            for row_idx, row in enumerate(all_rows, start=2):
 
                 row_data = dict(zip(headers, row))
                 row_data = json_safe(row_data)
@@ -476,21 +475,31 @@ def upload_excel(request):
                         if values:
                             DocumentValue.objects.bulk_create(values)
 
-                        # Generate PDF/DOCX synchronously
-                        success = _generate_document(document)
-                        if success:
-                            success_count += 1
+                        # For small uploads (<= 5 rows), generate immediately.
+                        # For bulk/large uploads (> 5 rows), mark as draft and delegate to high-speed batch queue engine!
+                        if total_valid_rows <= 5:
+                            success = _generate_document(document)
+                            if success:
+                                success_count += 1
+                            else:
+                                errors.append(f"Row {row_idx}: Generation failed on initial pass (queued for retry).")
                         else:
-                            errors.append(f"Row {row_idx}: Failed to generate document.")
+                            success_count += 1
 
                 except Exception as e:
                     errors.append(f"Row {row_idx}: {e}")
 
             # Show results
-            for err in errors:
+            for err in errors[:10]:
                 messages.error(request, err)
+            if len(errors) > 10:
+                messages.warning(request, f"...and {len(errors) - 10} more row errors.")
+
             if success_count:
-                messages.success(request, f"Successfully processed {success_count} rows.")
+                if total_valid_rows > 5:
+                    messages.success(request, f"Successfully imported {success_count} documents into the high-speed generation queue! The batch progress bar will now generate all PDFs automatically.")
+                else:
+                    messages.success(request, f"Successfully imported and generated {success_count} documents.")
             return redirect("document_list")
 
     else:
@@ -549,14 +558,13 @@ def regenerate_document(request, doc_id):
         messages.warning(request, 'Document is not in a valid state for regeneration.')
         return redirect('document_status', doc.id)
 
-    if doc.generated_pdf:
-        doc.generated_pdf.delete(save=False)
-    if doc.generated_docx:
-        doc.generated_docx.delete(save=False)
-    if doc.qr_code:
-        doc.qr_code.delete(save=False)
-    if doc.barcode:
-        doc.barcode.delete(save=False)
+    for f_attr in ['generated_pdf', 'generated_docx', 'qr_code', 'barcode']:
+        field_file = getattr(doc, f_attr, None)
+        if field_file:
+            try:
+                field_file.delete(save=False)
+            except Exception:
+                pass
 
     doc.status = 'draft'
     doc.save()
@@ -665,16 +673,18 @@ def bulk_action(request):
         count = 0
         for doc_id in doc_ids:
             doc = get_object_or_404(Document, id=doc_id)
-            if doc.status == 'generated':
-                doc.status = 'draft'
-                doc.generated_pdf.delete(save=False)
-                doc.generated_docx.delete(save=False)
-                doc.qr_code.delete(save=False)
-                doc.barcode.delete(save=False)
-                doc.save()
-                generate_document_pdf_docx(doc.id)
+            for f_attr in ['generated_pdf', 'generated_docx', 'qr_code', 'barcode']:
+                field_file = getattr(doc, f_attr, None)
+                if field_file:
+                    try:
+                        field_file.delete(save=False)
+                    except Exception:
+                        pass
+            doc.status = 'draft'
+            doc.save()
+            if _generate_document(doc):
                 count += 1
-        messages.success(request, f'Regeneration started for {count} documents.')
+        messages.success(request, f'Successfully generated/regenerated {count} documents.')
         return redirect('document_list')
 
     else:
@@ -686,15 +696,15 @@ def bulk_action(request):
 def process_queue(request):
     """
     Process pending documents synchronously – no background worker required.
-    Called by external cron job (e.g., cron-job.org).
+    Called by external cron job or internal queue runner.
     """
-    MAX_PER_RUN = 25
+    batch_size = int(request.GET.get('batch', request.POST.get('batch', 25)))
     processed = 0
     errors = 0
 
     pending_docs = Document.objects.filter(
         Q(status='draft') | Q(status='processing')
-    ).order_by('created_at')[:MAX_PER_RUN]
+    ).order_by('created_at')[:batch_size]
 
     for doc in pending_docs:
         if doc.status == 'processing':
@@ -713,12 +723,112 @@ def process_queue(request):
             doc.save()
             errors += 1
 
+    total_count = Document.objects.count()
+    generated_count = Document.objects.filter(status='generated').count()
     remaining = Document.objects.filter(status='draft').count()
+    failed = Document.objects.filter(status='failed').count()
+    processing = Document.objects.filter(status='processing').count()
+
     return JsonResponse({
         'status': 'ok',
         'processed': processed,
         'errors': errors,
-        'remaining': remaining
+        'remaining': remaining,
+        'failed': failed,
+        'processing': processing,
+        'generated': generated_count,
+        'total': total_count,
+    })
+
+
+@login_required
+def queue_status(request):
+    """
+    Returns real-time queue metrics for progress bar polling:
+    total, generated, draft/pending, processing, failed, and percent complete.
+    """
+    total = Document.objects.count()
+    generated = Document.objects.filter(status='generated').count()
+    pending = Document.objects.filter(status='draft').count()
+    processing = Document.objects.filter(status='processing').count()
+    failed = Document.objects.filter(status='failed').count()
+
+    percent = 100 if total == 0 else round((generated / total) * 100, 1)
+
+    return JsonResponse({
+        'total': total,
+        'generated': generated,
+        'pending': pending,
+        'processing': processing,
+        'failed': failed,
+        'percent': percent,
+    })
+
+
+@login_required
+@require_POST
+def process_queue_batch(request):
+    """
+    Processes one chunk/batch of pending draft documents on-demand (e.g. 15-25 items)
+    with safe exception handling so the browser can iterate smoothly without timing out.
+    """
+    batch_size = int(request.POST.get('batch_size', 20))
+    processed = 0
+    errors = 0
+
+    # Fetch next batch of pending documents
+    docs = Document.objects.filter(Q(status='draft') | Q(status='processing')).order_by('id')[:batch_size]
+
+    for doc in docs:
+        try:
+            doc.status = 'processing'
+            doc.save(update_fields=['status'])
+
+            if _generate_document(doc):
+                processed += 1
+            else:
+                doc.status = 'failed'
+                doc.save(update_fields=['status'])
+                errors += 1
+        except Exception as exc:
+            logger.error(f"Batch generation exception for doc {doc.id}: {exc}")
+            doc.status = 'failed'
+            doc.save(update_fields=['status'])
+            errors += 1
+
+    total = Document.objects.count()
+    generated = Document.objects.filter(status='generated').count()
+    remaining = Document.objects.filter(status='draft').count()
+    processing = Document.objects.filter(status='processing').count()
+    failed = Document.objects.filter(status='failed').count()
+
+    percent = 100 if total == 0 else round((generated / total) * 100, 1)
+
+    return JsonResponse({
+        'status': 'ok',
+        'processed_in_batch': processed,
+        'errors_in_batch': errors,
+        'remaining': remaining,
+        'processing': processing,
+        'generated': generated,
+        'failed': failed,
+        'total': total,
+        'percent': percent,
+    })
+
+
+@login_required
+@require_POST
+def retry_failed_documents(request):
+    """
+    Resets all documents in 'failed' status back to 'draft'
+    so the system or background worker automatically retries and completes them.
+    """
+    updated_count = Document.objects.filter(status='failed').update(status='draft')
+    return JsonResponse({
+        'status': 'ok',
+        'requeued_count': updated_count,
+        'message': f'Requeued {updated_count} failed document(s) for generation.'
     })
 
 

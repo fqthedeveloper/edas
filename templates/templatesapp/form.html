@@ -1,22 +1,372 @@
 {% extends "base.html" %}
 {% block title %}{% if form.instance.pk %}Edit{% else %}Add{% endif %} Template{% endblock %}
+
 {% block content %}
-<div class="card">
-    <div class="card-header">
-        <h3>{% if form.instance.pk %}Edit{% else %}Add{% endif %} Template</h3>
-    </div>
-    <div class="card-body">
-        <form method="post" enctype="multipart/form-data">
-            {% csrf_token %}
-            <fieldset class="border p-3 mb-4">
-                <legend class="w-auto">Template Details</legend>
-                {{ form.as_p }}
-            </fieldset>
-            <div class="d-flex flex-wrap gap-2 mt-3">
-                <button type="submit" class="btn btn-success">Save</button>
-                <a href="{% url 'template_list' %}" class="btn btn-secondary">Cancel</a>
+<div class="row justify-content-center">
+    <div class="col-12 col-xl-11">
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+            <div>
+                <h3 class="fw-bold mb-0">{% if form.instance.pk %}Edit{% else %}Create{% endif %} Template</h3>
+                <small class="text-muted">Configure template layout, WeasyPrint HTML/CSS, margins, and properties.</small>
             </div>
-        </form>
+            <a href="{% url 'template_list' %}" class="btn btn-outline-secondary btn-sm">
+                &larr; Back to Templates
+            </a>
+        </div>
+
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-body p-4">
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger mb-4">
+                            {{ form.non_field_errors }}
+                        </div>
+                    {% endif %}
+
+                    <!-- Section: General Information -->
+                    <h5 class="fw-bold border-bottom pb-2 mb-3 text-primary">1. General Information</h5>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Company</label>
+                            {{ form.company }}
+                            {% if form.company.errors %}<div class="text-danger small mt-1">{{ form.company.errors.0 }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Template Name <span class="text-danger">*</span></label>
+                            {{ form.name }}
+                            {% if form.name.errors %}<div class="text-danger small mt-1">{{ form.name.errors.0 }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Template Type</label>
+                            {{ form.template_type }}
+                            {% if form.template_type.errors %}<div class="text-danger small mt-1">{{ form.template_type.errors.0 }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Page Size</label>
+                            {{ form.page_size }}
+                            {% if form.page_size.errors %}<div class="text-danger small mt-1">{{ form.page_size.errors.0 }}</div>{% endif %}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Orientation</label>
+                            {{ form.orientation }}
+                            {% if form.orientation.errors %}<div class="text-danger small mt-1">{{ form.orientation.errors.0 }}</div>{% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Section: File Assets -->
+                    <h5 class="fw-bold border-bottom pb-2 mb-3 text-primary">2. Files & Assets</h5>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Preview Image</label>
+                            {{ form.preview_image }}
+                            {% if form.instance.preview_image %}
+                                <div class="mt-2">
+                                    <small class="text-muted">Current: <a href="{{ form.instance.preview_image.url }}" target="_blank">View preview</a></small>
+                                </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">DOCX Template (.docx)</label>
+                            {{ form.docx_template }}
+                            {% if form.instance.docx_template %}
+                                <div class="mt-2">
+                                    <small class="text-muted">Current: <a href="{{ form.instance.docx_template.url }}" target="_blank">Download .docx</a></small>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Section: HTML/CSS Print Layout & Live Device Preview -->
+                    <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
+                        <h5 class="fw-bold mb-0 text-primary">3. HTML/CSS Print Layout & Live Preview</h5>
+                        <div class="btn-group btn-group-sm" role="group" aria-label="Layout View Modes">
+                            <button type="button" class="btn btn-outline-primary active" id="btnSplitView" onclick="setLayoutView('split')">
+                                <i class="bi bi-layout-split"></i> Split View
+                            </button>
+                            <button type="button" class="btn btn-outline-primary" id="btnCodeOnly" onclick="setLayoutView('code')">
+                                <i class="bi bi-code-slash"></i> Code Only
+                            </button>
+                            <button type="button" class="btn btn-outline-primary" id="btnPreviewOnly" onclick="setLayoutView('preview')">
+                                <i class="bi bi-eye"></i> Preview Only
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="row g-3 mb-4" id="layoutContainer">
+                        <!-- Code Editor Column -->
+                        <div class="col-lg-6" id="codeCol">
+                            <div class="card h-100 border shadow-none bg-light">
+                                <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
+                                    <span class="fw-semibold small text-secondary"><i class="bi bi-filetype-html"></i> Template HTML / CSS Editor</span>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <button type="button" class="btn btn-xs btn-outline-secondary" style="font-size: 0.75rem; padding: 2px 7px;" onclick="formatSampleData()" title="Substitute Sample Data in Preview">
+                                            <i class="bi bi-magic"></i> Auto-Fill Sample Data
+                                        </button>
+                                        <button type="button" class="btn btn-xs btn-outline-secondary" style="font-size: 0.75rem; padding: 2px 7px;" onclick="renderLivePreview()" title="Refresh Preview">
+                                            <i class="bi bi-arrow-repeat"></i> Refresh
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="card-body p-2 d-flex flex-column">
+                                    <div class="mb-2">
+                                        <small class="text-muted d-block" style="font-size: 0.8rem;">
+                                            WeasyPrint ready: CSS <code>@page { size: A4; margin: 12mm; }</code>, flex, tables, variables <code>&#123;&#123; variable_name &#125;&#125;</code>.
+                                        </small>
+                                    </div>
+                                    {{ form.html_layout }}
+                                    {% if form.html_layout.errors %}<div class="text-danger small mt-1">{{ form.html_layout.errors.0 }}</div>{% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Live Device / Print Preview Column -->
+                        <div class="col-lg-6" id="previewCol">
+                            <div class="card h-100 border shadow-none bg-light">
+                                <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                    <div class="d-flex align-items-center gap-1">
+                                        <span class="fw-semibold small text-secondary me-2"><i class="bi bi-printer"></i> Layout Preview</span>
+                                        <!-- Device Viewport Buttons -->
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary active py-0 px-2" id="devA4" onclick="setDeviceViewport('a4')" title="A4 Print Sheet (210mm x 297mm)">
+                                                <i class="bi bi-file-earmark-richtext"></i> A4 Print
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" id="devDesktop" onclick="setDeviceViewport('desktop')" title="Desktop / Full Width">
+                                                <i class="bi bi-display"></i> 100%
+                                            </button>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" id="devTablet" onclick="setDeviceViewport('tablet')" title="Tablet View (768px)">
+                                                <i class="bi bi-tablet"></i> Tablet
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle" id="liveStatusBadge" style="font-size: 0.7rem;">Live Sync</span>
+                                        <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="openPreviewFullscreen()" title="Open Preview in New Window">
+                                            <i class="bi bi-box-arrow-up-right"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="card-body p-2 d-flex justify-content-center align-items-start" style="background: #e9ecef; min-height: 520px; overflow: auto;">
+                                    <div id="previewWrapper" style="width: 100%; max-width: 100%; transition: all 0.25s ease; box-shadow: 0 4px 15px rgba(0,0,0,0.1); background: #ffffff; border-radius: 4px; overflow: hidden; height: 600px;">
+                                        <iframe id="livePreviewIframe" title="Print Layout Preview" style="width: 100%; height: 100%; border: none; background: #fff;"></iframe>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section: Additional Print Customizations -->
+                    <h5 class="fw-bold border-bottom pb-2 mb-3 text-primary">4. Header, Footer & Margins</h5>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Header Content</label>
+                            {{ form.header }}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Footer Content</label>
+                            {{ form.footer }}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Margins (JSON / CSS)</label>
+                            {{ form.margins }}
+                        </div>
+                    </div>
+
+                    <div class="d-flex align-items-center mb-4">
+                        <div class="form-check form-switch">
+                            {{ form.is_active }}
+                            <label class="form-check-label fw-semibold ms-2" for="{{ form.is_active.id_for_label }}">Active Template (Available in Document Wizard)</label>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+                        <a href="{% url 'template_list' %}" class="btn btn-light px-4">Cancel</a>
+                        <button type="submit" class="btn btn-success px-5 fw-bold">
+                            <i class="bi bi-check2-circle"></i> Save Template
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 </div>
+
+<script>
+(function() {
+    const htmlLayoutInput = document.getElementById('id_html_layout');
+    const iframe = document.getElementById('livePreviewIframe');
+    const previewWrapper = document.getElementById('previewWrapper');
+    const codeCol = document.getElementById('codeCol');
+    const previewCol = document.getElementById('previewCol');
+    const liveStatusBadge = document.getElementById('liveStatusBadge');
+
+    let previewDebounceTimer = null;
+
+    // Sample mock dictionary to simulate realistic document rendering
+    const sampleContext = {
+        'tc_number': 'AFPL/2026-27/4406',
+        'document_number': 'DOC-2026-0891',
+        'report_no': 'REP-2026-0042',
+        'date': '06/10/2026',
+        'issue_date': '06/10/2026',
+        'client_name': 'MacLeods Pharmaceuticals Ltd.',
+        'customer_name': 'MacLeods Pharmaceuticals Ltd.',
+        'client_address': 'Plot No 23, GIDC Industrial Estate, Sarigam, Gujarat - 396155',
+        'address': 'Plot No 23, GIDC Industrial Estate, Sarigam, Gujarat - 396155',
+        'product_name': 'HEPA Filter 610 x 610 x 150 mm',
+        'filter_type': 'HEPA Filter (H14)',
+        'model_no': 'AF-HEPA-610-150',
+        'serial_no': 'SN-2026-99412',
+        'quantity': '10 Nos',
+        'batch_no': 'B-4406',
+        'tested_by': 'Quality Assurance Dept.',
+        'approved_by': 'Technical Director',
+        'result': 'PASSED (Complies with EN 1822 / ISO 29463)',
+        'efficiency': '99.997 % @ 0.3 µm',
+        'initial_pressure_drop': '142 Pa',
+        'rated_airflow': '1000 CFM',
+        'company_name': 'AIR FILTER PRODUCTS LTD.',
+        'remarks': 'Conforms strictly to standard specification limits.'
+    };
+
+    {% verbatim %}
+    function replacePlaceholders(rawHtml) {
+        if (!rawHtml) return '<div style="padding: 40px; text-align: center; color: #888; font-family: sans-serif;"><em>Enter HTML/CSS layout code on the left to see live preview...</em></div>';
+
+        // 1. Remove Django template comments {# ... #}
+        let processed = rawHtml.replace(/\{#[\s\S]*?#\}/g, '');
+
+        // 2. Remove or simplify Django block/tag controls like {% if ... %}, {% endif %}, {% for ... %}, etc.
+        processed = processed.replace(/\{%[\s\S]*?%\}/g, '');
+
+        // 3. Replace known {{ variable }} and generic {{ any_tag }} placeholders
+        processed = processed.replace(/\{\{\s*([a-zA-Z0-9_\.]+)\s*\}\}/g, function(match, key) {
+            const cleanKey = key.trim().toLowerCase();
+            if (sampleContext[cleanKey]) {
+                return sampleContext[cleanKey];
+            }
+            // Smart fallbacks based on variable name fragments
+            if (cleanKey.includes('date')) return '06/10/2026';
+            if (cleanKey.includes('name') || cleanKey.includes('client')) return 'Sample Client / Company Ltd.';
+            if (cleanKey.includes('no') || cleanKey.includes('num')) return 'AFPL/2026-27/001';
+            if (cleanKey.includes('qty') || cleanKey.includes('count')) return '5';
+            if (cleanKey.includes('test') || cleanKey.includes('status')) return 'PASSED';
+            return match; // return as-is if no match
+        });
+
+        return processed;
+    }
+    {% endverbatim %}
+
+    window.renderLivePreview = function() {
+        if (!iframe || !htmlLayoutInput) return;
+        
+        try {
+            const rawContent = htmlLayoutInput.value || '';
+            const populatedContent = replacePlaceholders(rawContent);
+
+            const doc = iframe.contentWindow.document;
+            doc.open();
+            doc.write(populatedContent);
+            doc.close();
+
+            if (liveStatusBadge) {
+                liveStatusBadge.textContent = 'Live Sync';
+                liveStatusBadge.className = 'badge bg-success-subtle text-success border border-success-subtle';
+            }
+        } catch (e) {
+            console.error('Preview render error:', e);
+            if (liveStatusBadge) {
+                liveStatusBadge.textContent = 'Error';
+                liveStatusBadge.className = 'badge bg-danger-subtle text-danger border border-danger-subtle';
+            }
+        }
+    };
+
+    window.setLayoutView = function(mode) {
+        document.getElementById('btnSplitView').classList.remove('active');
+        document.getElementById('btnCodeOnly').classList.remove('active');
+        document.getElementById('btnPreviewOnly').classList.remove('active');
+
+        if (mode === 'split') {
+            document.getElementById('btnSplitView').classList.add('active');
+            codeCol.className = 'col-lg-6';
+            previewCol.className = 'col-lg-6';
+            codeCol.style.display = 'block';
+            previewCol.style.display = 'block';
+        } else if (mode === 'code') {
+            document.getElementById('btnCodeOnly').classList.add('active');
+            codeCol.className = 'col-12';
+            codeCol.style.display = 'block';
+            previewCol.style.display = 'none';
+        } else if (mode === 'preview') {
+            document.getElementById('btnPreviewOnly').classList.add('active');
+            previewCol.className = 'col-12';
+            codeCol.style.display = 'none';
+            previewCol.style.display = 'block';
+        }
+        renderLivePreview();
+    };
+
+    window.setDeviceViewport = function(device) {
+        document.getElementById('devA4').classList.remove('active');
+        document.getElementById('devDesktop').classList.remove('active');
+        document.getElementById('devTablet').classList.remove('active');
+
+        if (device === 'a4') {
+            document.getElementById('devA4').classList.add('active');
+            // A4 Aspect: ~210mm x 297mm (1:1.414). In preview viewport: standard 595px width
+            previewWrapper.style.maxWidth = '595px';
+            previewWrapper.style.height = '842px';
+        } else if (device === 'desktop') {
+            document.getElementById('devDesktop').classList.add('active');
+            previewWrapper.style.maxWidth = '100%';
+            previewWrapper.style.height = '620px';
+        } else if (device === 'tablet') {
+            document.getElementById('devTablet').classList.add('active');
+            previewWrapper.style.maxWidth = '768px';
+            previewWrapper.style.height = '700px';
+        }
+    };
+
+    window.openPreviewFullscreen = function() {
+        if (!htmlLayoutInput) return;
+        const newWin = window.open('', '_blank');
+        if (newWin) {
+            newWin.document.open();
+            newWin.document.write(replacePlaceholders(htmlLayoutInput.value));
+            newWin.document.close();
+        }
+    };
+
+    window.formatSampleData = function() {
+        renderLivePreview();
+        if (liveStatusBadge) {
+            liveStatusBadge.textContent = 'Auto-Filled';
+            setTimeout(() => {
+                liveStatusBadge.textContent = 'Live Sync';
+            }, 1800);
+        }
+    };
+
+    // Attach real-time input listener with 200ms debounce
+    if (htmlLayoutInput) {
+        htmlLayoutInput.addEventListener('input', function() {
+            clearTimeout(previewDebounceTimer);
+            if (liveStatusBadge) {
+                liveStatusBadge.textContent = 'Updating...';
+                liveStatusBadge.className = 'badge bg-warning-subtle text-warning border border-warning-subtle';
+            }
+            previewDebounceTimer = setTimeout(renderLivePreview, 200);
+        });
+    }
+
+    // Initialize on page load
+    window.addEventListener('DOMContentLoaded', function() {
+        setDeviceViewport('a4');
+        renderLivePreview();
+    });
+})();
+</script>
 {% endblock %}

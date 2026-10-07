@@ -19,5 +19,8 @@ urlpatterns = [
     path('verify/', views.verify_form, name='verify_form'),  # form to enter number
     path('verify/<path:document_number>/', views.verify_document, name='verify'),
     path('process-queue/', views.process_queue, name='process_queue'),
+    path('queue/status/', views.queue_status, name='queue_status'),
+    path('queue/process-batch/', views.process_queue_batch, name='process_queue_batch'),
+    path('queue/retry-failed/', views.retry_failed_documents, name='retry_failed_documents'),
     path('<int:doc_id>/edit/', views.document_edit, name='document_edit'),
 ]

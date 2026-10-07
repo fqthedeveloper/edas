@@ -1,26 +1,67 @@
 {% extends "base.html" %}
-{% block title %}Upload Excel{% endblock %}
+{% block title %}Bulk Import & Excel Document Automation{% endblock %}
+
 {% block content %}
-<div class="card">
-    <div class="card-header">
-        <h3>Bulk Document Generation from Excel</h3>
-    </div>
-    <div class="card-body">
-        <p>Upload an Excel file (.xlsx) with each row representing a document. The first row must contain column headers that match the field names of your templates.</p>
-        <p><strong>Special columns (case-sensitive):</strong></p>
-        <ul>
-            <li><code>client_name</code> – required, must match an existing client name</li>
-            <li><code>product_name</code> – required, must match an existing product name</li>
-            <li><code>template_name</code> – optional; if not provided, uses the default template from product or the form selection</li>
-            <li><code>tc_number</code> – optional; if omitted, auto-generates</li>
-        </ul>
-        <p><a href="{% url 'download_sample_excel' %}" class="btn btn-sm btn-info">📥 Download Sample Excel</a></p>
-        <form method="post" enctype="multipart/form-data">
-            {% csrf_token %}
-            {{ form.as_p }}
-            <button type="submit" class="btn btn-primary">Upload & Generate</button>
-            <a href="{% url 'document_list' %}" class="btn btn-secondary">Cancel</a>
-        </form>
+<div class="row justify-content-center">
+    <div class="col-lg-9">
+        <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+            <div>
+                <h3 class="fw-bold mb-0">High-Speed Excel Document Import</h3>
+                <small class="text-muted">Import up to 1,000+ certificates at once with real-time queue tracking and automatic retry.</small>
+            </div>
+            <a href="{% url 'document_list' %}" class="btn btn-outline-secondary btn-sm">
+                &larr; Documents Registry
+            </a>
+        </div>
+
+        <div class="card shadow-sm border-0 mb-4">
+            <div class="card-body p-4">
+                <div class="alert alert-info d-flex align-items-center gap-3 mb-4">
+                    <i class="bi bi-lightning-charge-fill fs-3 text-info"></i>
+                    <div>
+                        <strong>Enterprise Batch Processing:</strong>
+                        <div class="small">Each row is converted into a certificate record. Generation runs seamlessly in chunks of 20 with a real-time progress bar, guaranteed not to timeout on PythonAnywhere or shared production servers.</div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <h6 class="fw-bold text-dark mb-2">Excel Format Guidelines:</h6>
+                    <ul class="small text-muted mb-3 ps-3">
+                        <li><code>client_name</code> – <strong>Required</strong>. Name of client/pharmaceutical firm.</li>
+                        <li><code>product_name</code> – <strong>Required</strong>. Name of filter product.</li>
+                        <li><code>template_name</code> – <em>Optional</em>. Template layout name (defaults to product template).</li>
+                        <li><code>tc_number</code> – <em>Optional</em>. If omitted, sequential number (e.g. <code>AFPL/2026-27/001</code>) is automatically assigned.</li>
+                    </ul>
+                    <a href="{% url 'download_sample_excel' %}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-file-earmark-arrow-down"></i> Download Sample Excel (.xlsx)
+                    </a>
+                </div>
+
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Select Excel File (.xlsx) <span class="text-danger">*</span></label>
+                        {{ form.excel_file }}
+                        {% if form.excel_file.errors %}
+                            <div class="text-danger small mt-1">{{ form.excel_file.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold">Default Template (Fallback)</label>
+                        {{ form.template }}
+                        <div class="form-text">Used if a row in your spreadsheet leaves <code>template_name</code> blank.</div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+                        <a href="{% url 'document_list' %}" class="btn btn-light px-4">Cancel</a>
+                        <button type="submit" class="btn btn-primary px-4 fw-bold">
+                            <i class="bi bi-cloud-arrow-up-fill me-1"></i> Upload & Start Ingestion
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
